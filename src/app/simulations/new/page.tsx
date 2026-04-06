@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import { calculate, generateMonthlyData, generateCostComparison, type SimInputs } from "@/lib/calc";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceDot,
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend, ResponsiveContainer, ReferenceDot,
 } from "recharts";
+import HelpTip from "@/components/tooltip";
 
 const defaultInputs: SimInputs = {
   operatorCost: 2000,
@@ -131,16 +132,16 @@ export default function SimulationPage() {
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">現状コスト</p>
               {([
-                ["operatorCost", "オペレーター人材コスト", "万円/月"],
-                ["personMonthCost", "人月コスト", "万円/人月"],
-                ["monthlyCalls", "月間コール件数", "件/月"],
-                ["avgCallTime", "1コール平均時間", "分"],
-                ["systemCost", "現行システム運用費", "万円/月"],
-                ["trainingCost", "新人教育費用", "万円/年"],
-                ["otherCost", "その他の費用", "万円/月"],
-              ] as [keyof SimInputs, string, string][]).map(([key, label, unit]) => (
+                ["operatorCost", "オペレーター人材コスト", "万円/月", "コールセンター等のオペレーター全員の月間人件費合計です"],
+                ["personMonthCost", "人月コスト", "万円/人月", "オペレーター1人あたりの月間コストです（給与+社保+間接費）"],
+                ["monthlyCalls", "月間コール件数", "件/月", "1ヶ月間に対応する問い合わせ・コールの総数です"],
+                ["avgCallTime", "1コール平均時間", "分", "1件の問い合わせにかかる平均対応時間です"],
+                ["systemCost", "現行システム運用費", "万円/月", "現在使用中のCTI・CRM等のシステム月額費用です"],
+                ["trainingCost", "新人教育費用", "万円/年", "年間のオペレーター研修・教育にかかる費用です"],
+                ["otherCost", "その他の費用", "万円/月", "上記以外の関連コスト（通信費、設備費等）です"],
+              ] as [keyof SimInputs, string, string, string][]).map(([key, label, unit, tip]) => (
                 <div key={key} className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                  <span className="text-xs text-gray-600 sm:flex-1">{label}</span>
+                  <span className="text-xs text-gray-600 sm:flex-1">{label}<HelpTip text={tip} /></span>
                   <div className="flex items-center gap-2">
                     <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
                       className={ic + " w-full sm:w-[110px]"} />
@@ -153,11 +154,11 @@ export default function SimulationPage() {
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">AI導入コスト</p>
               {([
-                ["initialInvestment", "初期費用（一括）", "万円"],
-                ["monthlyAiCost", "月額費用", "万円/月"],
-              ] as [keyof SimInputs, string, string][]).map(([key, label, unit]) => (
+                ["initialInvestment", "初期費用（一括）", "万円", "AI導入・カスタマイズにかかる一括費用です"],
+                ["monthlyAiCost", "月額費用", "万円/月", "AIシステムの月額利用料（ランニングコスト）です"],
+              ] as [keyof SimInputs, string, string, string][]).map(([key, label, unit, tip]) => (
                 <div key={key} className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                  <span className="text-xs text-gray-600 sm:flex-1">{label}</span>
+                  <span className="text-xs text-gray-600 sm:flex-1">{label}<HelpTip text={tip} /></span>
                   <div className="flex items-center gap-2">
                     <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
                       className={ic + " w-full sm:w-[110px]"} />
@@ -171,7 +172,7 @@ export default function SimulationPage() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">削減見込み</p>
               <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs text-gray-600">AI自動化率</span>
+                  <span className="text-xs text-gray-600">AI自動化率<HelpTip text="コール対応のうち、AIが自動で処理できる割合の見込みです。60%なら10件中6件をAIが対応します" /></span>
                   <span className="text-sm font-bold text-violet-600">{inputs.automationRate}%</span>
                 </div>
                 <input type="range" min={0} max={100} step={5} value={inputs.automationRate}
@@ -179,14 +180,14 @@ export default function SimulationPage() {
                   className="w-full accent-violet-600" />
               </div>
               <div className="mb-2 flex items-center gap-2">
-                <span className="flex-1 text-xs text-gray-600">人員削減見込み</span>
+                <span className="flex-1 text-xs text-gray-600">人員削減見込み<HelpTip text="AI導入により不要になるオペレーターの人数見込みです" /></span>
                 <input type="number" value={inputs.headcountReduction} onChange={(e) => update("headcountReduction", parseFloat(e.target.value) || 0)}
                   className={ic} style={{ width: 110 }} />
                 <span className="w-14 text-[10px] text-gray-400">人</span>
               </div>
               <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs text-gray-600">教育コスト削減率</span>
+                  <span className="text-xs text-gray-600">教育コスト削減率<HelpTip text="AIがナレッジベースとして機能するため、新人教育にかかるコストを削減できます" /></span>
                   <span className="text-sm font-bold text-violet-600">{inputs.trainingReductionRate}%</span>
                 </div>
                 <input type="range" min={0} max={100} step={5} value={inputs.trainingReductionRate}
@@ -224,7 +225,7 @@ export default function SimulationPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={2} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}万`} />
-                  <Tooltip formatter={(value) => [`¥${Number(value).toLocaleString()}万`, ""]} />
+                  <RTooltip formatter={(value) => [`¥${Number(value).toLocaleString()}万`, ""]} />
                   <Legend />
                   <Line type="monotone" dataKey="cumulativeSaving" name="累積コスト削減額" stroke="#7c3aed" strokeWidth={2.5} dot={false} />
                   <Line type="monotone" dataKey="cumulativeInvestment" name="累積投資額" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 5" dot={false} />
@@ -248,7 +249,7 @@ export default function SimulationPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                   <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}万`} />
-                  <Tooltip formatter={(value) => [`¥${Number(value).toLocaleString()}万`, ""]} />
+                  <RTooltip formatter={(value) => [`¥${Number(value).toLocaleString()}万`, ""]} />
                   <Legend />
                   <Bar dataKey="before" name="導入前" fill="#e5e7eb" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="after" name="導入後" fill="#7c3aed" radius={[4, 4, 0, 0]} />
