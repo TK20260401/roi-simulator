@@ -139,11 +139,13 @@ export default function SimulationPage() {
                 ["trainingCost", "新人教育費用", "万円/年"],
                 ["otherCost", "その他の費用", "万円/月"],
               ] as [keyof SimInputs, string, string][]).map(([key, label, unit]) => (
-                <div key={key} className="mb-2 flex items-center gap-2">
-                  <span className="flex-1 text-xs text-gray-600">{label}</span>
-                  <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
-                    className={ic} style={{ width: 110 }} />
-                  <span className="w-14 text-[10px] text-gray-400">{unit}</span>
+                <div key={key} className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-xs text-gray-600 sm:flex-1">{label}</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
+                      className={ic + " w-full sm:w-[110px]"} />
+                    <span className="w-14 shrink-0 text-[10px] text-gray-400">{unit}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -154,11 +156,13 @@ export default function SimulationPage() {
                 ["initialInvestment", "初期費用（一括）", "万円"],
                 ["monthlyAiCost", "月額費用", "万円/月"],
               ] as [keyof SimInputs, string, string][]).map(([key, label, unit]) => (
-                <div key={key} className="mb-2 flex items-center gap-2">
-                  <span className="flex-1 text-xs text-gray-600">{label}</span>
-                  <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
-                    className={ic} style={{ width: 110 }} />
-                  <span className="w-14 text-[10px] text-gray-400">{unit}</span>
+                <div key={key} className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span className="text-xs text-gray-600 sm:flex-1">{label}</span>
+                  <div className="flex items-center gap-2">
+                    <input type="number" value={inputs[key]} onChange={(e) => update(key, parseFloat(e.target.value) || 0)}
+                      className={ic + " w-full sm:w-[110px]"} />
+                    <span className="w-14 shrink-0 text-[10px] text-gray-400">{unit}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -253,7 +257,7 @@ export default function SimulationPage() {
             </div>
 
             {/* コスト内訳サマリー */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div className="rounded-xl border border-gray-100 bg-white p-4 text-center">
                 <p className="text-xs text-gray-400">現状月間コスト</p>
                 <p className="mt-1 text-xl font-bold text-gray-900">¥{fmt(results.currentMonthlyCost)}</p>
