@@ -9,20 +9,86 @@ import {
 } from "recharts";
 import HelpTip from "@/components/tooltip";
 
-const defaultInputs: SimInputs = {
-  operatorCost: 2000,
-  personMonthCost: 80,
-  monthlyCalls: 15000,
-  avgCallTime: 8,
-  systemCost: 300,
-  trainingCost: 500,
-  otherCost: 100,
-  initialInvestment: 6000,
-  monthlyAiCost: 200,
-  automationRate: 60,
-  headcountReduction: 12,
-  trainingReductionRate: 60,
+type Preset = {
+  name: string;
+  description: string;
+  inputs: SimInputs;
 };
+
+const PRESETS: Preset[] = [
+  {
+    name: "カスタム",
+    description: "自由に値を入力",
+    inputs: {
+      operatorCost: 0, personMonthCost: 0, monthlyCalls: 0, avgCallTime: 0,
+      systemCost: 0, trainingCost: 0, otherCost: 0,
+      initialInvestment: 0, monthlyAiCost: 0,
+      automationRate: 0, headcountReduction: 0, trainingReductionRate: 0,
+    },
+  },
+  {
+    name: "コールセンター（中規模）",
+    description: "50〜100席規模、月間1万〜2万コール",
+    inputs: {
+      operatorCost: 2000, personMonthCost: 80, monthlyCalls: 15000, avgCallTime: 8,
+      systemCost: 300, trainingCost: 500, otherCost: 100,
+      initialInvestment: 6000, monthlyAiCost: 200,
+      automationRate: 60, headcountReduction: 12, trainingReductionRate: 60,
+    },
+  },
+  {
+    name: "コールセンター（大規模）",
+    description: "200席以上、月間5万コール超",
+    inputs: {
+      operatorCost: 8000, personMonthCost: 75, monthlyCalls: 50000, avgCallTime: 7,
+      systemCost: 800, trainingCost: 2000, otherCost: 500,
+      initialInvestment: 15000, monthlyAiCost: 500,
+      automationRate: 50, headcountReduction: 40, trainingReductionRate: 50,
+    },
+  },
+  {
+    name: "製造業（問い合わせ窓口）",
+    description: "製品サポート・技術問い合わせ対応",
+    inputs: {
+      operatorCost: 800, personMonthCost: 85, monthlyCalls: 5000, avgCallTime: 12,
+      systemCost: 150, trainingCost: 300, otherCost: 50,
+      initialInvestment: 3000, monthlyAiCost: 100,
+      automationRate: 40, headcountReduction: 4, trainingReductionRate: 40,
+    },
+  },
+  {
+    name: "小売・EC（カスタマーサポート）",
+    description: "注文・返品・配送に関する問い合わせ",
+    inputs: {
+      operatorCost: 1200, personMonthCost: 70, monthlyCalls: 20000, avgCallTime: 5,
+      systemCost: 200, trainingCost: 400, otherCost: 80,
+      initialInvestment: 4000, monthlyAiCost: 150,
+      automationRate: 70, headcountReduction: 10, trainingReductionRate: 65,
+    },
+  },
+  {
+    name: "金融・保険（コンタクトセンター）",
+    description: "契約・請求・商品案内の対応",
+    inputs: {
+      operatorCost: 3000, personMonthCost: 90, monthlyCalls: 12000, avgCallTime: 10,
+      systemCost: 500, trainingCost: 800, otherCost: 200,
+      initialInvestment: 8000, monthlyAiCost: 300,
+      automationRate: 45, headcountReduction: 15, trainingReductionRate: 50,
+    },
+  },
+  {
+    name: "自治体・官公庁（窓口業務）",
+    description: "住民からの問い合わせ・手続き案内",
+    inputs: {
+      operatorCost: 600, personMonthCost: 60, monthlyCalls: 8000, avgCallTime: 10,
+      systemCost: 100, trainingCost: 200, otherCost: 30,
+      initialInvestment: 2000, monthlyAiCost: 80,
+      automationRate: 55, headcountReduction: 5, trainingReductionRate: 45,
+    },
+  },
+];
+
+const defaultInputs = PRESETS[1].inputs;
 
 function fmt(v: number): string {
   if (v >= 10000) return `${(v / 10000).toFixed(1)}億`;
@@ -97,7 +163,28 @@ export default function SimulationPage() {
     <AppShell>
       <div className="px-4 py-6 sm:px-8">
         <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">収益計画シミュレーション</h2>
-        <p className="mb-6 text-sm text-gray-500">コスト項目を入力すると、ROI・回収期間・年間効果額がリアルタイムで更新されます</p>
+        <p className="mb-4 text-sm text-gray-500">コスト項目を入力すると、ROI・回収期間・年間効果額がリアルタイムで更新されます</p>
+
+        {/* 業界別プリセット */}
+        <div className="mb-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">業界テンプレートから始める</p>
+          <div className="flex flex-wrap gap-2">
+            {PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => setInputs(preset.inputs)}
+                className={`rounded-lg border px-3 py-2 text-xs transition-colors ${
+                  JSON.stringify(inputs) === JSON.stringify(preset.inputs)
+                    ? "border-violet-400 bg-violet-50 font-medium text-violet-700"
+                    : "border-gray-200 text-gray-600 hover:border-violet-200 hover:bg-violet-50"
+                }`}
+              >
+                <span className="font-medium">{preset.name}</span>
+                <span className="ml-1 hidden text-gray-400 sm:inline">— {preset.description}</span>
+              </button>
+            ))}
+          </div>
+        </div>
 
         {/* KPI結果カード */}
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
