@@ -23,7 +23,7 @@ https://roi-simulator-delta.vercel.app
 | シミュレーション保存 | 名前をつけて保存・一覧・詳細表示 |
 | 業界別プリセット | 7テンプレート（コールセンター/製造/小売/金融/自治体）からワンクリック入力 |
 | 比較機能 | 最大4つのシミュレーションを横並び比較（テーブル+グラフ） |
-| 印刷/PDF出力 | シミュレーション結果をA4横でPDF保存（コスト内訳テーブル+前提条件付き） |
+| 印刷/PDF出力 | 作成画面・詳細画面の両方から印刷/PDF保存（A4横、グラフ+コスト内訳+前提条件、Confidential付き） |
 | KGI/KPI管理 | 最終目標（KGI）と中間指標（KPI）の階層管理・CRUD |
 | ヘルプ | クイックスタート3ステップ + FAQ 14項目 + 全入力項目にツールチップ |
 | AIチャット | フローティングチャットアシスタント（Claude API連携、APIキー設定後有効） |
@@ -72,8 +72,8 @@ src/
 │   │   └── chat/route.ts          # AIチャットAPI（Claude連携）
 │   ├── dashboard/page.tsx         # ダッシュボード
 │   ├── simulations/
-│   │   ├── new/page.tsx           # シミュレーション作成（メイン画面）
-│   │   └── [id]/page.tsx          # 保存済み詳細表示・印刷
+│   │   ├── new/page.tsx           # シミュレーション作成（メイン画面・印刷/PDF対応）
+│   │   └── [id]/page.tsx          # 保存済み詳細表示・印刷/PDF対応
 │   ├── compare/page.tsx           # シミュレーション比較（最大4プラン）
 │   ├── history/page.tsx           # シミュレーション履歴
 │   ├── kpi/page.tsx               # KGI/KPI管理
