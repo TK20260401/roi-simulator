@@ -13,7 +13,7 @@ export default async function DashboardPage() {
     .from("simulations").select("*", { count: "exact", head: true }).gte("created_at", firstOfMonth.toISOString());
 
   const { data: recent } = await supabase
-    .from("simulations").select("id, name, company_name, created_at").order("created_at", { ascending: false }).limit(5);
+    .from("simulations").select("id, name, company_name, created_by_name, created_at").order("created_at", { ascending: false }).limit(5);
 
   const { count: kgiCount } = await supabase
     .from("kgi_goals").select("*", { count: "exact", head: true });
@@ -63,7 +63,10 @@ export default async function DashboardPage() {
               <Link key={s.id} href={`/simulations/${s.id}`} className="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-4 hover:bg-gray-50">
                 <div>
                   <p className="font-medium text-gray-900">{s.name}</p>
-                  {s.company_name && <p className="text-xs text-gray-400">{s.company_name}</p>}
+                  <p className="text-xs text-gray-400">
+                    {s.company_name && <span>{s.company_name}</span>}
+                    {s.created_by_name && <span>{s.company_name ? " | " : ""}作成者: {s.created_by_name}</span>}
+                  </p>
                 </div>
                 <span className="text-xs text-gray-400">{new Date(s.created_at).toLocaleDateString("ja-JP")}</span>
               </Link>

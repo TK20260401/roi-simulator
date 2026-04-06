@@ -4,15 +4,21 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import AppShell from "@/components/app-shell";
 
-type KGI = { id: string; title: string; target_value: number; unit: string; deadline: string };
+type KGI = { id: string; title: string; target_value: number; unit: string; deadline: string; created_by_name: string | null };
 type KPI = { id: string; kgi_id: string; title: string; target_value: number; unit: string; deadline: string };
+
+function getDisplayName(): string {
+  const match = document.cookie.split("; ").find(c => c.startsWith("display_name="));
+  return match ? decodeURIComponent(match.split("=")[1]) : "unknown";
+}
 
 export default function KpiPage() {
   const supabase = createClient();
   const [kgis, setKgis] = useState<KGI[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [newKgi, setNewKgi] = useState({ title: "", target_value: "", unit: "%", deadline: "" });
-  const [newKpi, setNewKpi] = useState({ kgi_id: "", title: "", target_value: "", unit: "%", deadline: "" });
+  const [newKpiFor, setNewKpiFor] = useState<string | null>(null);
+  const [newKpi, setNewKpi] = useState({ title: "", target_value: "", unit: "%", deadline: "" });
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
@@ -27,33 +33,50 @@ export default function KpiPage() {
 
   async function addKgi() {
     if (!newKgi.title.trim()) return;
-    await supabase.from("kgi_goals").insert({
-      title: newKgi.title,
-      target_value: parseFloat(newKgi.target_value) || 0,
-      unit: newKgi.unit, deadline: newKgi.deadline || null,
+    const res = await fetch("/api/kgi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: newKgi.title,
+        target_value: parseFloat(newKgi.target_value) || 0,
+        unit: newKgi.unit,
+        deadline: newKgi.deadline || null,
+        created_by_name: getDisplayName(),
+      }),
     });
-    setNewKgi({ title: "", target_value: "", unit: "%", deadline: "" });
-    loadData();
+    if (res.ok) {
+      setNewKgi({ title: "", target_value: "", unit: "%", deadline: "" });
+      loadData();
+    }
   }
 
-  async function addKpi() {
-    if (!newKpi.title.trim() || !newKpi.kgi_id) return;
-    await supabase.from("kpi_metrics").insert({
-      kgi_id: newKpi.kgi_id, title: newKpi.title,
-      target_value: parseFloat(newKpi.target_value) || 0,
-      unit: newKpi.unit, deadline: newKpi.deadline || null,
+  async function addKpi(kgiId: string) {
+    if (!newKpi.title.trim()) return;
+    const res = await fetch("/api/kpi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        kgi_id: kgiId,
+        title: newKpi.title,
+        target_value: parseFloat(newKpi.target_value) || 0,
+        unit: newKpi.unit,
+        deadline: newKpi.deadline || null,
+      }),
     });
-    setNewKpi({ kgi_id: "", title: "", target_value: "", unit: "%", deadline: "" });
-    loadData();
+    if (res.ok) {
+      setNewKpi({ title: "", target_value: "", unit: "%", deadline: "" });
+      setNewKpiFor(null);
+      loadData();
+    }
   }
 
   async function deleteKgi(id: string) {
-    await supabase.from("kgi_goals").delete().eq("id", id);
+    await fetch("/api/kgi", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     loadData();
   }
 
   async function deleteKpi(id: string) {
-    await supabase.from("kpi_metrics").delete().eq("id", id);
+    await fetch("/api/kpi", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
     loadData();
   }
 
@@ -81,7 +104,7 @@ export default function KpiPage() {
           </div>
         </div>
 
-        {/* KGI一覧 + 配下KPI */}
+        {/* KGI一覧 */}
         {kgis.length === 0 ? (
           <div className="rounded-xl border border-gray-100 bg-white py-12 text-center text-gray-400">
             KGIがまだありません。上のフォームから追加してください。
@@ -96,12 +119,15 @@ export default function KpiPage() {
                     <div>
                       <span className="rounded bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-600">KGI</span>
                       <h4 className="mt-1 text-base font-semibold text-gray-900">{kgi.title}</h4>
-                      <p className="text-xs text-gray-400">目標: {kgi.target_value}{kgi.unit} {kgi.deadline && `| 期限: ${kgi.deadline}`}</p>
+                      <p className="text-xs text-gray-400">
+                        目標: {kgi.target_value}{kgi.unit}
+                        {kgi.deadline && ` | 期限: ${kgi.deadline}`}
+                        {kgi.created_by_name && ` | 登録者: ${kgi.created_by_name}`}
+                      </p>
                     </div>
                     <button onClick={() => deleteKgi(kgi.id)} className="text-xs text-red-400 hover:text-red-600">削除</button>
                   </div>
 
-                  {/* 配下KPI */}
                   {childKpis.length > 0 && (
                     <div className="mb-3 ml-4 space-y-2 border-l-2 border-violet-100 pl-4">
                       {childKpis.map((kpi) => (
@@ -118,14 +144,22 @@ export default function KpiPage() {
                   )}
 
                   {/* KPI追加 */}
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <input type="text" value={newKpi.kgi_id === kgi.id ? newKpi.title : ""} onChange={(e) => setNewKpi({ ...newKpi, kgi_id: kgi.id, title: e.target.value })}
-                      className={ic + " flex-1"} placeholder="KPIを追加（例: 月間AI対応率）" />
-                    <input type="number" value={newKpi.kgi_id === kgi.id ? newKpi.target_value : ""} onChange={(e) => setNewKpi({ ...newKpi, kgi_id: kgi.id, target_value: e.target.value })}
-                      className={ic + " w-20"} placeholder="目標値" />
-                    <button onClick={() => { setNewKpi({ ...newKpi, kgi_id: kgi.id }); addKpi(); }}
-                      className="rounded-lg border border-violet-200 px-3 py-2 text-xs font-medium text-violet-600 hover:bg-violet-50">+ KPI追加</button>
-                  </div>
+                  {newKpiFor === kgi.id ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <input type="text" value={newKpi.title} onChange={(e) => setNewKpi({ ...newKpi, title: e.target.value })}
+                        className={ic + " flex-1"} placeholder="KPI名（例: 月間AI対応率）" />
+                      <input type="number" value={newKpi.target_value} onChange={(e) => setNewKpi({ ...newKpi, target_value: e.target.value })}
+                        className={ic + " w-20"} placeholder="目標値" />
+                      <select value={newKpi.unit} onChange={(e) => setNewKpi({ ...newKpi, unit: e.target.value })} className={ic + " w-20"}>
+                        <option value="%">%</option><option value="万円">万円</option><option value="人">人</option><option value="件">件</option>
+                      </select>
+                      <button onClick={() => addKpi(kgi.id)} className="rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium text-white hover:bg-violet-700">追加</button>
+                      <button onClick={() => setNewKpiFor(null)} className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-500 hover:bg-gray-50">キャンセル</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setNewKpiFor(kgi.id); setNewKpi({ title: "", target_value: "", unit: "%", deadline: "" }); }}
+                      className="mt-3 rounded-lg border border-violet-200 px-3 py-2 text-xs font-medium text-violet-600 hover:bg-violet-50">+ KPI追加</button>
+                  )}
                 </div>
               );
             })}

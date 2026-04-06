@@ -32,6 +32,7 @@ export default async function HistoryPage() {
                 <tr>
                   <th className="px-4 py-3 font-medium text-gray-600">名前</th>
                   <th className="px-4 py-3 font-medium text-gray-600">企業名</th>
+                  <th className="px-4 py-3 font-medium text-gray-600">作成者</th>
                   <th className="px-4 py-3 font-medium text-gray-600">作成日</th>
                   <th className="px-4 py-3 font-medium text-gray-600">操作</th>
                 </tr>
@@ -41,6 +42,7 @@ export default async function HistoryPage() {
                   <tr key={s.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                     <td className="px-4 py-3 text-gray-500">{s.company_name ?? "—"}</td>
+                    <td className="px-4 py-3 text-gray-500">{s.created_by_name ?? "—"}</td>
                     <td className="px-4 py-3 text-gray-400">{new Date(s.created_at).toLocaleDateString("ja-JP")}</td>
                     <td className="px-4 py-3">
                       <Link href={`/simulations/${s.id}`} className="text-violet-600 hover:underline">詳細</Link>

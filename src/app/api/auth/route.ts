@@ -7,13 +7,21 @@ export async function POST(request: Request) {
   const validPass = process.env.BASIC_AUTH_PASSWORD;
 
   if (username === validUser && password === validPass) {
+    const displayName = (request.headers.get("x-display-name") || username).slice(0, 50);
     const response = NextResponse.json({ success: true });
     response.cookies.set("basic_auth", "authenticated", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 7, // 7日間
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    response.cookies.set("display_name", displayName, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
     });
     return response;
   }

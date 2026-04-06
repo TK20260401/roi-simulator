@@ -58,23 +58,32 @@ export default function SimulationPage() {
     if (!simName.trim()) { setError("シミュレーション名を入力してください。"); return; }
     setError(""); setSaving(true); setSaved(false);
 
-    const { error: e } = await supabase.from("simulations").insert({
-      name: simName,
-      company_name: companyName || null,
-      operator_cost: inputs.operatorCost,
-      person_month_cost: inputs.personMonthCost,
-      monthly_calls: inputs.monthlyCalls,
-      avg_call_time: inputs.avgCallTime,
-      system_cost: inputs.systemCost,
-      training_cost: inputs.trainingCost,
-      other_cost: inputs.otherCost,
-      initial_investment: inputs.initialInvestment,
-      monthly_ai_cost: inputs.monthlyAiCost,
-      automation_rate: inputs.automationRate,
-      headcount_reduction: inputs.headcountReduction,
-      training_reduction_rate: inputs.trainingReductionRate,
+    // Cookie から表示名を取得
+    const displayName = document.cookie.split("; ").find(c => c.startsWith("display_name="))?.split("=")[1] || "unknown";
+
+    const res = await fetch("/api/simulations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: simName,
+        company_name: companyName || null,
+        created_by_name: decodeURIComponent(displayName),
+        operator_cost: inputs.operatorCost,
+        person_month_cost: inputs.personMonthCost,
+        monthly_calls: inputs.monthlyCalls,
+        avg_call_time: inputs.avgCallTime,
+        system_cost: inputs.systemCost,
+        training_cost: inputs.trainingCost,
+        other_cost: inputs.otherCost,
+        initial_investment: inputs.initialInvestment,
+        monthly_ai_cost: inputs.monthlyAiCost,
+        automation_rate: inputs.automationRate,
+        headcount_reduction: inputs.headcountReduction,
+        training_reduction_rate: inputs.trainingReductionRate,
+      }),
     });
-    if (e) { setError(e.message); setSaving(false); return; }
+    const data = await res.json();
+    if (!res.ok) { setError(data.error || "保存に失敗しました"); setSaving(false); return; }
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }

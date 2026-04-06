@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function LoginPage() {
 
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-display-name": displayName || username },
       body: JSON.stringify({ username, password }),
     });
 
@@ -43,6 +44,11 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-6 shadow-sm">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">表示名</label>
+            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
+              className={ic} placeholder="例: 田中太郎（他ユーザーに表示されます）" />
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700">ユーザーID</label>
             <input type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
