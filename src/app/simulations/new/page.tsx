@@ -57,11 +57,8 @@ export default function SimulationPage() {
   async function handleSave() {
     if (!simName.trim()) { setError("シミュレーション名を入力してください。"); return; }
     setError(""); setSaving(true); setSaved(false);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError("ログインが必要です。"); setSaving(false); return; }
 
     const { error: e } = await supabase.from("simulations").insert({
-      user_id: user.id,
       name: simName,
       company_name: companyName || null,
       operator_cost: inputs.operatorCost,

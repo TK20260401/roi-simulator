@@ -27,10 +27,8 @@ export default function KpiPage() {
 
   async function addKgi() {
     if (!newKgi.title.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
     await supabase.from("kgi_goals").insert({
-      user_id: user.id, title: newKgi.title,
+      title: newKgi.title,
       target_value: parseFloat(newKgi.target_value) || 0,
       unit: newKgi.unit, deadline: newKgi.deadline || null,
     });

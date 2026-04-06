@@ -1,15 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
 
 export default async function HistoryPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { data: sims } = await supabase
-    .from("simulations").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    .from("simulations").select("*").order("created_at", { ascending: false });
 
   return (
     <AppShell>

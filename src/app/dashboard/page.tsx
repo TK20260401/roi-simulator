@@ -1,25 +1,22 @@
 import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
 
   const { count: totalCount } = await supabase
-    .from("simulations").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    .from("simulations").select("*", { count: "exact", head: true });
 
   const firstOfMonth = new Date(); firstOfMonth.setDate(1); firstOfMonth.setHours(0,0,0,0);
   const { count: monthCount } = await supabase
-    .from("simulations").select("*", { count: "exact", head: true }).eq("user_id", user.id).gte("created_at", firstOfMonth.toISOString());
+    .from("simulations").select("*", { count: "exact", head: true }).gte("created_at", firstOfMonth.toISOString());
 
   const { data: recent } = await supabase
-    .from("simulations").select("id, name, company_name, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5);
+    .from("simulations").select("id, name, company_name, created_at").order("created_at", { ascending: false }).limit(5);
 
   const { count: kgiCount } = await supabase
-    .from("kgi_goals").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+    .from("kgi_goals").select("*", { count: "exact", head: true });
 
   return (
     <AppShell>
