@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import { calculate, generateMonthlyData, generateCostComparison, type SimInputs } from "@/lib/calc";
@@ -32,7 +31,6 @@ function fmt(v: number): string {
 
 export default function SimulationPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [inputs, setInputs] = useState<SimInputs>(defaultInputs);
   const [simName, setSimName] = useState("");
   const [companyName, setCompanyName] = useState("");

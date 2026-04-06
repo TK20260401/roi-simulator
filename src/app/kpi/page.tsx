@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import AppShell from "@/components/app-shell";
 
 type KGI = { id: string; title: string; target_value: number; unit: string; deadline: string; created_by_name: string | null };
@@ -13,7 +12,6 @@ function getDisplayName(): string {
 }
 
 export default function KpiPage() {
-  const supabase = createClient();
   const [kgis, setKgis] = useState<KGI[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
   const [newKgi, setNewKgi] = useState({ title: "", target_value: "", unit: "%", deadline: "" });
@@ -22,10 +20,10 @@ export default function KpiPage() {
   const [loading, setLoading] = useState(true);
 
   async function loadData() {
-    const { data: k1 } = await supabase.from("kgi_goals").select("*").order("created_at", { ascending: false });
-    const { data: k2 } = await supabase.from("kpi_metrics").select("*").order("created_at", { ascending: false });
-    setKgis((k1 ?? []) as KGI[]);
-    setKpis((k2 ?? []) as KPI[]);
+    const res = await fetch("/api/kgi");
+    const data = await res.json();
+    setKgis(data.kgis ?? []);
+    setKpis(data.kpis ?? []);
     setLoading(false);
   }
 
@@ -33,7 +31,7 @@ export default function KpiPage() {
 
   async function addKgi() {
     if (!newKgi.title.trim()) return;
-    const res = await fetch("/api/kgi", {
+    await fetch("/api/kgi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -44,15 +42,13 @@ export default function KpiPage() {
         created_by_name: getDisplayName(),
       }),
     });
-    if (res.ok) {
-      setNewKgi({ title: "", target_value: "", unit: "%", deadline: "" });
-      loadData();
-    }
+    setNewKgi({ title: "", target_value: "", unit: "%", deadline: "" });
+    loadData();
   }
 
   async function addKpi(kgiId: string) {
     if (!newKpi.title.trim()) return;
-    const res = await fetch("/api/kpi", {
+    await fetch("/api/kpi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -63,11 +59,9 @@ export default function KpiPage() {
         deadline: newKpi.deadline || null,
       }),
     });
-    if (res.ok) {
-      setNewKpi({ title: "", target_value: "", unit: "%", deadline: "" });
-      setNewKpiFor(null);
-      loadData();
-    }
+    setNewKpi({ title: "", target_value: "", unit: "%", deadline: "" });
+    setNewKpiFor(null);
+    loadData();
   }
 
   async function deleteKgi(id: string) {
@@ -90,7 +84,6 @@ export default function KpiPage() {
         <h2 className="text-2xl font-bold text-gray-900">KGI/KPI管理</h2>
         <p className="mb-8 mt-1 text-sm text-gray-500">目標（KGI）と中間指標（KPI）の設定・管理</p>
 
-        {/* KGI追加 */}
         <div className="mb-8 rounded-xl border border-gray-100 bg-white p-5">
           <h3 className="mb-4 text-sm font-semibold text-gray-700">KGI（最終目標）を追加</h3>
           <div className="flex flex-wrap gap-2">
@@ -104,7 +97,6 @@ export default function KpiPage() {
           </div>
         </div>
 
-        {/* KGI一覧 */}
         {kgis.length === 0 ? (
           <div className="rounded-xl border border-gray-100 bg-white py-12 text-center text-gray-400">
             KGIがまだありません。上のフォームから追加してください。
@@ -143,7 +135,6 @@ export default function KpiPage() {
                     </div>
                   )}
 
-                  {/* KPI追加 */}
                   {newKpiFor === kgi.id ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       <input type="text" value={newKpi.title} onChange={(e) => setNewKpi({ ...newKpi, title: e.target.value })}

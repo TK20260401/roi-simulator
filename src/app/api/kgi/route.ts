@@ -7,10 +7,23 @@ async function checkAuth() {
   return cookieStore.get("basic_auth")?.value === "authenticated";
 }
 
+export async function GET() {
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+
+  const supabase = await createClient();
+  const [kgiRes, kpiRes] = await Promise.all([
+    supabase.rpc("get_kgi_goals"),
+    supabase.rpc("get_kpi_metrics"),
+  ]);
+
+  return NextResponse.json({
+    kgis: kgiRes.data ?? [],
+    kpis: kpiRes.data ?? [],
+  });
+}
+
 export async function POST(request: Request) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   const body = await request.json();
   const supabase = await createClient();
@@ -28,14 +41,11 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   const { id } = await request.json();
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_kgi", { p_id: id });
-
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ success: true });
 }

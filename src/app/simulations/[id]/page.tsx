@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { useParams, useRouter } from "next/navigation";
 import AppShell from "@/components/app-shell";
 import { calculate, generateMonthlyData, generateCostComparison, type SimInputs } from "@/lib/calc";
@@ -17,28 +16,29 @@ export default function SimulationDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const supabase = createClient();
   const [inputs, setInputs] = useState<SimInputs | null>(null);
   const [name, setName] = useState("");
+  const [createdBy, setCreatedBy] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      const { data } = await supabase.from("simulations").select("*").eq("id", id).single();
-      if (!data) { setLoading(false); return; }
-      setName(data.name);
-      setInputs({
-        operatorCost: Number(data.operator_cost), personMonthCost: Number(data.person_month_cost),
-        monthlyCalls: data.monthly_calls, avgCallTime: Number(data.avg_call_time),
-        systemCost: Number(data.system_cost), trainingCost: Number(data.training_cost),
-        otherCost: Number(data.other_cost), initialInvestment: Number(data.initial_investment),
-        monthlyAiCost: Number(data.monthly_ai_cost), automationRate: data.automation_rate,
-        headcountReduction: data.headcount_reduction, trainingReductionRate: data.training_reduction_rate,
+    fetch(`/api/simulations?id=${id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data || data.error) { setLoading(false); return; }
+        setName(data.name);
+        setCreatedBy(data.created_by_name ?? "");
+        setInputs({
+          operatorCost: Number(data.operator_cost), personMonthCost: Number(data.person_month_cost),
+          monthlyCalls: data.monthly_calls, avgCallTime: Number(data.avg_call_time),
+          systemCost: Number(data.system_cost), trainingCost: Number(data.training_cost),
+          otherCost: Number(data.other_cost), initialInvestment: Number(data.initial_investment),
+          monthlyAiCost: Number(data.monthly_ai_cost), automationRate: data.automation_rate,
+          headcountReduction: data.headcount_reduction, trainingReductionRate: data.training_reduction_rate,
+        });
+        setLoading(false);
       });
-      setLoading(false);
-    }
-    load();
-  }, [id, supabase]);
+  }, [id]);
 
   const results = useMemo(() => inputs ? calculate(inputs) : null, [inputs]);
   const monthlyData = useMemo(() => inputs && results ? generateMonthlyData(inputs, results) : [], [inputs, results]);
@@ -57,7 +57,10 @@ export default function SimulationDetailPage() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">{name}</h2>
-            <p className="text-sm text-gray-500">保存済みシミュレーション</p>
+            <p className="text-sm text-gray-500">
+              保存済みシミュレーション
+              {createdBy && <span> | 作成者: {createdBy}</span>}
+            </p>
           </div>
           <button onClick={() => router.push("/history")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">一覧に戻る</button>
         </div>

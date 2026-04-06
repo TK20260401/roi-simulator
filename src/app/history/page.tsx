@@ -1,12 +1,20 @@
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/app-shell";
 
-export default async function HistoryPage() {
-  const supabase = await createClient();
+type Sim = { id: string; name: string; company_name: string | null; created_by_name: string | null; created_at: string };
 
-  const { data: sims } = await supabase
-    .from("simulations").select("*").order("created_at", { ascending: false });
+export default function HistoryPage() {
+  const [sims, setSims] = useState<Sim[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/simulations").then(r => r.json()).then(d => { setSims(d); setLoading(false); });
+  }, []);
+
+  if (loading) return <AppShell><div className="flex h-full items-center justify-center"><p className="text-gray-400">読み込み中...</p></div></AppShell>;
 
   return (
     <AppShell>
@@ -21,7 +29,7 @@ export default async function HistoryPage() {
           </Link>
         </div>
 
-        {(sims ?? []).length === 0 ? (
+        {sims.length === 0 ? (
           <div className="flex flex-col items-center rounded-xl border border-gray-100 bg-white py-16">
             <p className="text-gray-400">まだシミュレーションがありません</p>
           </div>
@@ -38,7 +46,7 @@ export default async function HistoryPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {(sims ?? []).map((s) => (
+                {sims.map((s) => (
                   <tr key={s.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                     <td className="px-4 py-3 text-gray-500">{s.company_name ?? "—"}</td>

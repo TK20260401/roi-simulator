@@ -7,10 +7,29 @@ async function checkAuth() {
   return cookieStore.get("basic_auth")?.value === "authenticated";
 }
 
-export async function POST(request: Request) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+// 一覧取得
+export async function GET(request: Request) {
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  const supabase = await createClient();
+
+  if (id) {
+    const { data, error } = await supabase.rpc("get_simulation_by_id", { p_id: id });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json(data?.[0] ?? null);
   }
+
+  const limit = parseInt(searchParams.get("limit") ?? "100");
+  const { data, error } = await supabase.rpc("get_simulations", { p_limit: limit });
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json(data ?? []);
+}
+
+// 新規作成
+export async function POST(request: Request) {
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   const body = await request.json();
   const supabase = await createClient();
@@ -37,15 +56,13 @@ export async function POST(request: Request) {
   return NextResponse.json({ id: data });
 }
 
+// 削除
 export async function DELETE(request: Request) {
-  if (!(await checkAuth())) {
-    return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  }
+  if (!(await checkAuth())) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
 
   const { id } = await request.json();
   const supabase = await createClient();
   const { error } = await supabase.rpc("delete_simulation", { p_id: id });
-
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json({ success: true });
 }
