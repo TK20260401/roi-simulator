@@ -21,7 +21,12 @@ https://roi-simulator-delta.vercel.app
 | 折れ線グラフ | 累積コスト削減額 vs 累積投資額（回収ポイント表示） |
 | 棒グラフ | 月次ビフォーアフター比較（導入前 vs 導入後） |
 | シミュレーション保存 | 名前をつけて保存・一覧・詳細表示 |
+| 業界別プリセット | 7テンプレート（コールセンター/製造/小売/金融/自治体）からワンクリック入力 |
+| 比較機能 | 最大4つのシミュレーションを横並び比較（テーブル+グラフ） |
+| 印刷/PDF出力 | シミュレーション結果をA4横でPDF保存（コスト内訳テーブル+前提条件付き） |
 | KGI/KPI管理 | 最終目標（KGI）と中間指標（KPI）の階層管理・CRUD |
+| ヘルプ | クイックスタート3ステップ + FAQ 14項目 + 全入力項目にツールチップ |
+| AIチャット | フローティングチャットアシスタント（Claude API連携、APIキー設定後有効） |
 | ダッシュボード | シミュレーション数・今月の作成数・KGI目標数・最近のシミュレーション |
 | レスポンシブ | PC/タブレット/スマホ対応 |
 
@@ -63,18 +68,23 @@ src/
 │   │   ├── dashboard/route.ts     # ダッシュボードデータAPI
 │   │   ├── simulations/route.ts   # シミュレーションCRUD API
 │   │   ├── kgi/route.ts           # KGI CRUD API
-│   │   └── kpi/route.ts           # KPI CRUD API
+│   │   ├── kpi/route.ts           # KPI CRUD API
+│   │   └── chat/route.ts          # AIチャットAPI（Claude連携）
 │   ├── dashboard/page.tsx         # ダッシュボード
 │   ├── simulations/
 │   │   ├── new/page.tsx           # シミュレーション作成（メイン画面）
-│   │   └── [id]/page.tsx          # 保存済み詳細表示
+│   │   └── [id]/page.tsx          # 保存済み詳細表示・印刷
+│   ├── compare/page.tsx           # シミュレーション比較（最大4プラン）
 │   ├── history/page.tsx           # シミュレーション履歴
 │   ├── kpi/page.tsx               # KGI/KPI管理
+│   ├── help/page.tsx              # ヘルプ・FAQ
 │   ├── login/page.tsx             # ログイン
 │   └── layout.tsx
 ├── components/
 │   ├── sidebar.tsx                # サイドバーナビ
-│   └── app-shell.tsx              # レイアウトシェル
+│   ├── app-shell.tsx              # レイアウトシェル
+│   ├── chat-widget.tsx            # AIチャットウィジェット
+│   └── tooltip.tsx                # ツールチップ
 ├── lib/
 │   ├── calc.ts                    # 計算ロジック（独立関数）
 │   └── supabase/
