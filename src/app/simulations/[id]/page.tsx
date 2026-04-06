@@ -60,12 +60,33 @@ export default function SimulationDetailPage() {
       {/* 印刷用CSS */}
       <style>{`
         @media print {
+          /* 全体リセット */
+          body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           body * { visibility: hidden; }
-          #print-area, #print-area * { visibility: visible; }
-          #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-          .no-print { display: none !important; }
+
+          /* 印刷エリアのみ表示 */
+          #print-area, #print-area * { visibility: visible !important; }
+          #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; }
+
+          /* 非表示要素 */
+          .no-print, aside, nav, [class*="chat-"], button[aria-label="AIアシスタント"] { display: none !important; }
+
+          /* グラフのSVG確実表示 */
+          #print-area svg { visibility: visible !important; }
+          #print-area .recharts-wrapper { visibility: visible !important; overflow: visible !important; }
+          #print-area .recharts-surface { visibility: visible !important; }
+          #print-area .recharts-legend-wrapper { visibility: visible !important; }
+
+          /* カード背景色を印刷 */
+          #print-area [class*="bg-"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+          /* ページ設定 */
           .print-break { page-break-before: always; }
-          @page { margin: 15mm; size: A4 landscape; }
+          @page { margin: 12mm; size: A4 landscape; }
+
+          /* テーブル */
+          table { border-collapse: collapse; }
+          th, td { border: 1px solid #e5e7eb; }
         }
       `}</style>
 

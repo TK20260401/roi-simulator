@@ -161,9 +161,37 @@ export default function SimulationPage() {
 
   return (
     <AppShell>
+      {/* 印刷用CSS */}
+      <style>{`
+        @media print {
+          body { background: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          body * { visibility: hidden; }
+          #print-area-new, #print-area-new * { visibility: visible !important; }
+          #print-area-new { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; }
+          .no-print, aside, nav, [class*="chat-"], button[aria-label="AIアシスタント"] { display: none !important; }
+          #print-area-new svg { visibility: visible !important; }
+          #print-area-new .recharts-wrapper, #print-area-new .recharts-surface, #print-area-new .recharts-legend-wrapper { visibility: visible !important; overflow: visible !important; }
+          #print-area-new [class*="bg-"] { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .print-break { page-break-before: always; }
+          @page { margin: 12mm; size: A4 landscape; }
+          table { border-collapse: collapse; }
+          th, td { border: 1px solid #e5e7eb; }
+        }
+      `}</style>
       <div className="px-4 py-6 sm:px-8">
-        <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">収益計画シミュレーション</h2>
-        <p className="mb-4 text-sm text-gray-500">コスト項目を入力すると、ROI・回収期間・年間効果額がリアルタイムで更新されます</p>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">収益計画シミュレーション</h2>
+            <p className="text-sm text-gray-500">コスト項目を入力すると、ROI・回収期間・年間効果額がリアルタイムで更新されます</p>
+          </div>
+          <button onClick={() => window.print()}
+            className="no-print flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
+            </svg>
+            印刷 / PDF
+          </button>
+        </div>
 
         {/* 業界別プリセット */}
         <div className="mb-6">
@@ -184,6 +212,20 @@ export default function SimulationPage() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* 印刷エリア開始 */}
+        <div id="print-area-new">
+
+        {/* 印刷用ヘッダー */}
+        <div className="mb-6 hidden print:block">
+          <h1 className="text-2xl font-bold text-gray-900">AI導入 収益計画シミュレーション</h1>
+          <div className="mt-2 flex gap-4 text-sm text-gray-600">
+            {companyName && <span>企業名: {companyName}</span>}
+            {simName && <span>シミュレーション名: {simName}</span>}
+            <span>作成日: {new Date().toLocaleDateString("ja-JP")}</span>
+          </div>
+          <hr className="mt-3 border-gray-300" />
         </div>
 
         {/* KPI結果カード */}
@@ -212,8 +254,8 @@ export default function SimulationPage() {
 
         {/* 2カラム: 入力 + グラフ */}
         <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
-          {/* 左: 入力パネル */}
-          <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5">
+          {/* 左: 入力パネル（印刷時非表示） */}
+          <div className="space-y-4 rounded-xl border border-gray-100 bg-white p-5 no-print">
             <h3 className="border-b-2 border-violet-500 pb-2 text-sm font-bold text-violet-600">コスト入力</h3>
 
             <div>
@@ -360,7 +402,63 @@ export default function SimulationPage() {
                 <p className="text-[10px] text-violet-500">-{results.reductionRate}%</p>
               </div>
             </div>
+
+            {/* コスト内訳テーブル（印刷向け） */}
+            <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+              <h4 className="mb-4 text-sm font-semibold text-gray-700">コスト内訳</h4>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="py-2 text-left font-medium text-gray-600">項目</th>
+                    <th className="py-2 text-right font-medium text-gray-600">現状</th>
+                    <th className="py-2 text-right font-medium text-gray-600">導入後</th>
+                    <th className="py-2 text-right font-medium text-gray-600">削減額</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {costComparison.map((row) => (
+                    <tr key={row.name}>
+                      <td className="py-2 text-gray-700">{row.name}</td>
+                      <td className="py-2 text-right text-gray-500">¥{row.before.toLocaleString()}万</td>
+                      <td className="py-2 text-right text-violet-600">¥{row.after.toLocaleString()}万</td>
+                      <td className="py-2 text-right font-medium text-green-600">-¥{(row.before - row.after).toLocaleString()}万</td>
+                    </tr>
+                  ))}
+                  <tr className="border-t-2 border-gray-300 font-bold">
+                    <td className="py-2 text-gray-900">合計</td>
+                    <td className="py-2 text-right text-gray-900">¥{fmt(results.currentMonthlyCost)}</td>
+                    <td className="py-2 text-right text-violet-600">¥{fmt(results.afterMonthlyCost)}</td>
+                    <td className="py-2 text-right text-green-600">-¥{fmt(results.monthlySaving)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* 前提条件（印刷向け） */}
+            <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
+              <h4 className="mb-4 text-sm font-semibold text-gray-700">前提条件</h4>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-3">
+                <div className="flex justify-between"><span className="text-gray-500">オペレーター人件費</span><span className="font-medium">¥{inputs.operatorCost.toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">人月コスト</span><span className="font-medium">¥{inputs.personMonthCost.toLocaleString()}万/人月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">月間コール件数</span><span className="font-medium">{inputs.monthlyCalls.toLocaleString()}件</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">1コール平均時間</span><span className="font-medium">{inputs.avgCallTime}分</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">システム運用費</span><span className="font-medium">¥{inputs.systemCost.toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">教育費用</span><span className="font-medium">¥{inputs.trainingCost.toLocaleString()}万/年</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">初期投資</span><span className="font-medium">¥{inputs.initialInvestment.toLocaleString()}万</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">AI月額費用</span><span className="font-medium">¥{inputs.monthlyAiCost.toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">AI自動化率</span><span className="font-medium">{inputs.automationRate}%</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">人員削減見込み</span><span className="font-medium">{inputs.headcountReduction}人</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">教育削減率</span><span className="font-medium">{inputs.trainingReductionRate}%</span></div>
+              </div>
+            </div>
           </div>
+
+          {/* 印刷フッター */}
+          <div className="mt-6 hidden text-center text-xs text-gray-400 print:block">
+            AI Strategy Agent — 収益計画シミュレーション | {new Date().toLocaleDateString("ja-JP")} | Confidential
+          </div>
+
+        </div>{/* print-area-new 終了 */}
         </div>
       </div>
     </AppShell>
