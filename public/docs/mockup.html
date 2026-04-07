@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROI Simulator — モックアップ（表側 / 裏側ビジュアライゼーション）</title>
+<style>
+  :root {
+    --violet-50: #f5f3ff; --violet-100: #ede9fe; --violet-200: #ddd6fe;
+    --violet-500: #8b5cf6; --violet-600: #7c3aed; --violet-700: #6d28d9; --violet-800: #5b21b6;
+    --blue-500: #3b82f6; --blue-600: #2563eb;
+    --green-50: #f0fdf4; --green-500: #22c55e; --green-600: #16a34a;
+    --orange-500: #f97316; --orange-600: #ea580c;
+    --red-500: #ef4444;
+    --gray-50: #f9fafb; --gray-100: #f3f4f6; --gray-200: #e5e7eb; --gray-300: #d1d5db;
+    --gray-400: #9ca3af; --gray-500: #6b7280; --gray-600: #4b5563;
+    --gray-700: #374151; --gray-800: #1f2937; --gray-900: #111827;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic UI', sans-serif; background: var(--gray-100); color: var(--gray-800); }
+
+  /* Page controls */
+  .controls { position: sticky; top: 0; z-index: 1000; background: var(--gray-900); padding: 12px 24px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .controls h1 { color: #fff; font-size: 16px; margin-right: auto; }
+  .view-toggle { display: flex; border-radius: 8px; overflow: hidden; border: 1px solid var(--gray-600); }
+  .view-toggle button { padding: 6px 16px; font-size: 12px; border: none; cursor: pointer; background: var(--gray-800); color: var(--gray-400); transition: all .15s; }
+  .view-toggle button.active { background: var(--violet-600); color: #fff; }
+  .page-select { display: flex; gap: 4px; flex-wrap: wrap; }
+  .page-select button { padding: 4px 10px; font-size: 11px; border: 1px solid var(--gray-600); border-radius: 6px; background: var(--gray-800); color: var(--gray-400); cursor: pointer; transition: all .15s; }
+  .page-select button.active { background: var(--violet-600); color: #fff; border-color: var(--violet-600); }
+
+  /* Screen wrapper */
+  .screen { display: none; max-width: 1400px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  /* Mockup frame */
+  .mockup-frame { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,.08); margin: 24px; overflow: hidden; }
+  .browser-bar { background: var(--gray-200); padding: 8px 16px; display: flex; align-items: center; gap: 8px; }
+  .browser-dots { display: flex; gap: 6px; }
+  .browser-dots span { width: 10px; height: 10px; border-radius: 50%; }
+  .browser-dots span:nth-child(1) { background: #ef4444; }
+  .browser-dots span:nth-child(2) { background: #f59e0b; }
+  .browser-dots span:nth-child(3) { background: #22c55e; }
+  .browser-url { flex: 1; background: #fff; border-radius: 4px; padding: 4px 12px; font-size: 11px; color: var(--gray-500); font-family: monospace; }
+
+  /* Split view */
+  .split-view { display: flex; min-height: 600px; }
+  .split-view .front-side { flex: 1; border-right: 3px solid var(--violet-500); position: relative; }
+  .split-view .back-side { flex: 1; background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); position: relative; overflow-y: auto; padding: 20px; }
+  .side-label { position: absolute; top: 0; left: 0; right: 0; text-align: center; padding: 4px; font-size: 10px; font-weight: 700; letter-spacing: 1px; z-index: 10; }
+  .side-label.front { background: var(--violet-100); color: var(--violet-700); }
+  .side-label.back { background: #d1fae5; color: #065f46; }
+
+  /* Full view (front only) */
+  .full-view .front-side { flex: 1; border-right: none; }
+  .full-view .back-side { display: none; }
+
+  /* ===== MOCKUP COMPONENTS ===== */
+
+  /* Sidebar */
+  .mock-sidebar { width: 220px; min-width: 220px; background: var(--gray-900); color: #fff; display: flex; flex-direction: column; padding: 20px 0; }
+  .mock-sidebar .logo { padding: 0 20px 20px; border-bottom: 1px solid var(--gray-700); margin-bottom: 12px; }
+  .mock-sidebar .logo h2 { font-size: 15px; color: var(--violet-200); }
+  .mock-sidebar .logo p { font-size: 10px; color: var(--gray-500); }
+  .mock-sidebar nav { flex: 1; }
+  .mock-sidebar .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 20px; font-size: 13px; color: var(--gray-400); cursor: default; transition: all .15s; border-left: 3px solid transparent; }
+  .mock-sidebar .nav-item.active { background: rgba(124,58,237,.15); color: #fff; border-left-color: var(--violet-500); }
+  .mock-sidebar .nav-item .icon { width: 18px; text-align: center; font-size: 14px; }
+  .mock-sidebar .logout-btn { margin: 0 20px; padding: 8px; text-align: center; font-size: 12px; color: var(--gray-500); border: 1px solid var(--gray-700); border-radius: 6px; cursor: default; }
+
+  /* Main content area */
+  .mock-main { flex: 1; overflow-y: auto; background: var(--gray-50); }
+  .mock-main .page-content { padding: 24px; }
+  .mock-main .page-title { font-size: 20px; font-weight: 700; color: var(--gray-900); margin-bottom: 4px; }
+  .mock-main .page-subtitle { font-size: 12px; color: var(--gray-500); margin-bottom: 20px; }
+
+  /* Cards */
+  .mock-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .mock-card.violet { border-color: var(--violet-200); }
+  .mock-card.blue { border-color: #bfdbfe; }
+  .mock-card.green { border-color: #bbf7d0; }
+  .mock-card.orange { border-color: #fed7aa; }
+  .mock-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); letter-spacing: .5px; margin-bottom: 8px; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px; text-align: center; }
+  .stat-card .stat-value { font-size: 24px; font-weight: 800; }
+  .stat-card .stat-label { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+  .stat-card .stat-sub { font-size: 10px; margin-top: 2px; }
+
+  /* Inputs */
+  .mock-input { width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 13px; background: #fff; color: var(--gray-700); }
+  .mock-input.sm { padding: 4px 8px; font-size: 11px; }
+  .mock-label { font-size: 12px; color: var(--gray-600); margin-bottom: 4px; display: block; }
+  .mock-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: default; transition: all .15s; }
+  .mock-btn.primary { background: var(--violet-600); color: #fff; }
+  .mock-btn.secondary { background: var(--gray-200); color: var(--gray-600); }
+  .mock-btn.sm { padding: 5px 10px; font-size: 11px; border-radius: 6px; }
+  .mock-btn.danger { background: #fef2f2; color: var(--red-500); border: 1px solid #fecaca; }
+
+  /* Slider */
+  .mock-slider { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; position: relative; margin: 8px 0; }
+  .mock-slider .fill { height: 100%; background: var(--violet-500); border-radius: 3px; }
+  .mock-slider .thumb { width: 16px; height: 16px; background: var(--violet-600); border: 2px solid #fff; border-radius: 50%; position: absolute; top: -5px; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+
+  /* Table */
+  .mock-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .mock-table th, .mock-table td { padding: 8px 12px; border-bottom: 1px solid var(--gray-200); text-align: left; }
+  .mock-table th { background: var(--gray-50); color: var(--gray-600); font-weight: 600; }
+  .mock-table tr:hover { background: var(--gray-50); }
+
+  /* Badge */
+  .mock-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .mock-badge.violet { background: var(--violet-100); color: var(--violet-700); }
+  .mock-badge.blue { background: #dbeafe; color: #1d4ed8; }
+  .mock-badge.green { background: #dcfce7; color: #15803d; }
+  .mock-badge.orange { background: #fff7ed; color: #c2410c; }
+
+  /* Chart mockup */
+  .mock-chart { border: 1px solid var(--gray-200); border-radius: 8px; padding: 16px; background: #fff; position: relative; overflow: hidden; }
+  .mock-chart .chart-title { font-size: 12px; font-weight: 600; color: var(--gray-700); margin-bottom: 12px; }
+
+  /* SVG Line chart */
+  .line-chart-svg { width: 100%; }
+
+  /* Bar chart visual */
+  .bar-group { display: flex; align-items: flex-end; gap: 3px; height: 120px; }
+  .bar-pair { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; justify-content: flex-end; }
+  .bar-pair .bars { display: flex; gap: 2px; align-items: flex-end; width: 100%; justify-content: center; }
+  .bar { width: 20px; border-radius: 3px 3px 0 0; }
+  .bar.before { background: var(--gray-300); }
+  .bar.after { background: var(--violet-500); }
+  .bar-pair .bar-label { font-size: 9px; color: var(--gray-500); margin-top: 4px; text-align: center; }
+
+  /* Backend visualization */
+  .backend-flow { margin-bottom: 16px; }
+  .backend-box { border: 2px solid; border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+  .backend-box.api { border-color: #34d399; background: #ecfdf5; }
+  .backend-box.rpc { border-color: #fbbf24; background: #fffbeb; }
+  .backend-box.db { border-color: #38bdf8; background: #f0f9ff; border-style: dashed; }
+  .backend-box.ext { border-color: #a78bfa; background: #f5f3ff; }
+  .backend-box .box-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .backend-box .box-header.api-h { color: #065f46; }
+  .backend-box .box-header.rpc-h { color: #92400e; }
+  .backend-box .box-header.db-h { color: #0369a1; }
+  .backend-box .box-header.ext-h { color: #6d28d9; }
+  .backend-box code { font-size: 11px; background: rgba(0,0,0,.06); padding: 1px 4px; border-radius: 3px; }
+  .backend-box .desc { font-size: 11px; color: var(--gray-600); line-height: 1.7; }
+  .flow-arrow-down { text-align: center; padding: 4px 0; font-size: 16px; color: var(--orange-500); }
+  .method-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; margin-right: 4px; }
+  .method-tag.get { background: #dbeafe; color: #1d4ed8; }
+  .method-tag.post { background: #dcfce7; color: #15803d; }
+  .method-tag.delete { background: #fee2e2; color: #991b1b; }
+
+  /* Preset buttons */
+  .preset-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .preset-btn { padding: 6px 14px; border-radius: 8px; font-size: 12px; border: 1px solid var(--gray-300); background: #fff; color: var(--gray-600); cursor: default; }
+  .preset-btn.active { background: var(--violet-600); color: #fff; border-color: var(--violet-600); }
+
+  /* Chat widget */
+  .chat-widget-mockup { position: fixed; bottom: 24px; right: 24px; z-index: 900; }
+  .chat-bubble { width: 56px; height: 56px; background: var(--violet-600); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 24px; box-shadow: 0 4px 16px rgba(124,58,237,.35); cursor: pointer; }
+  .chat-panel { display: none; position: absolute; bottom: 68px; right: 0; width: 360px; background: #fff; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,.15); overflow: hidden; }
+  .chat-panel.open { display: block; }
+  .chat-panel .chat-header { background: var(--violet-600); color: #fff; padding: 12px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .chat-panel .chat-header .dot { width: 8px; height: 8px; background: var(--green-500); border-radius: 50%; }
+  .chat-panel .chat-messages { padding: 12px; min-height: 200px; max-height: 300px; overflow-y: auto; }
+  .chat-msg { max-width: 80%; padding: 8px 12px; border-radius: 12px; margin-bottom: 8px; font-size: 12px; line-height: 1.5; }
+  .chat-msg.assistant { background: var(--gray-100); color: var(--gray-700); border-bottom-left-radius: 4px; }
+  .chat-msg.user { background: var(--violet-600); color: #fff; margin-left: auto; border-bottom-right-radius: 4px; }
+  .chat-suggestions { padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap; border-top: 1px solid var(--gray-200); }
+  .chat-suggestions button { padding: 4px 10px; border-radius: 9999px; border: 1px solid var(--violet-300); background: #fff; color: var(--violet-600); font-size: 10px; cursor: default; }
+  .chat-input-bar { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--gray-200); }
+  .chat-input-bar input { flex: 1; padding: 6px 10px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 12px; }
+  .chat-input-bar button { padding: 6px 12px; background: var(--violet-600); color: #fff; border: none; border-radius: 8px; font-size: 12px; cursor: default; }
+
+  /* Form row */
+  .form-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .form-row .mock-label { min-width: 110px; margin-bottom: 0; font-size: 11px; }
+  .form-row .mock-input { flex: 1; }
+  .form-row .unit { font-size: 10px; color: var(--gray-400); min-width: 40px; }
+  .form-row .tooltip { width: 16px; height: 16px; background: var(--gray-200); border-radius: 50%; font-size: 9px; display: flex; align-items: center; justify-content: center; color: var(--gray-500); cursor: help; }
+
+  /* KGI/KPI */
+  .kgi-card { border-left: 4px solid var(--violet-500); background: #fff; border-radius: 0 10px 10px 0; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .kpi-card { border-left: 4px solid var(--blue-500); background: #f0f9ff; border-radius: 0 8px 8px 0; padding: 10px 12px; margin: 6px 0 6px 20px; }
+
+  /* Accordion */
+  .accordion-item { border-bottom: 1px solid var(--gray-200); }
+  .accordion-header { padding: 10px 0; font-size: 13px; font-weight: 600; color: var(--gray-700); display: flex; justify-content: space-between; cursor: default; }
+
+  /* Grid */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+  @media (max-width: 900px) {
+    .split-view { flex-direction: column; }
+    .split-view .front-side { border-right: none; border-bottom: 3px solid var(--violet-500); }
+    .mock-sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 8px; }
+    .mock-sidebar .logo { padding: 0 8px 8px; border-bottom: none; margin-bottom: 0; }
+    .mock-sidebar nav { display: flex; gap: 2px; flex-wrap: wrap; }
+    .mock-sidebar .nav-item { padding: 4px 8px; font-size: 11px; border-left: none; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== CONTROLS ==================== -->
+<div class="controls">
+  <h1>ROI Simulator — Mockup</h1>
+  <div class="view-toggle">
+    <button class="active" onclick="setView('split')">表側 + 裏側</button>
+    <button onclick="setView('front')">表側のみ</button>
+  </div>
+  <div class="page-select">
+    <button class="active" onclick="showScreen('login')">ログイン</button>
+    <button onclick="showScreen('dashboard')">ダッシュボード</button>
+    <button onclick="showScreen('simulation')">シミュレーション</button>
+    <button onclick="showScreen('detail')">詳細表示</button>
+    <button onclick="showScreen('compare')">比較</button>
+    <button onclick="showScreen('history')">履歴</button>
+    <button onclick="showScreen('kpi')">KGI/KPI</button>
+    <button onclick="showScreen('help')">ヘルプ</button>
+  </div>
+</div>
+
+<!-- ==================== LOGIN ==================== -->
+<div class="screen active" id="screen-login">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/login</div>
+    </div>
+    <div class="split-view" style="min-height: 500px;">
+      <div class="front-side" style="display:flex; align-items:center; justify-content:center; background:linear-gradient(135deg, var(--gray-50), var(--violet-50));">
+        <div class="side-label front">表側 — ユーザーが見る画面</div>
+        <div style="width: 360px; padding: 32px;">
+          <div style="text-align:center; margin-bottom:24px;">
+            <div style="font-size:28px; font-weight:800; color:var(--violet-600);">AI Strategy Agent</div>
+            <div style="font-size:12px; color:var(--gray-500); margin-top:4px;">収益計画シミュレーション</div>
+          </div>
+          <div class="mock-card" style="padding:24px;">
+            <div style="margin-bottom:14px;">
+              <label class="mock-label">表示名（任意）</label>
+              <input class="mock-input" value="田中太郎" readonly>
+            </div>
+            <div style="margin-bottom:14px;">
+              <label class="mock-label">ユーザーID *</label>
+              <input class="mock-input" value="admin" readonly>
+            </div>
+            <div style="margin-bottom:18px;">
+              <label class="mock-label">パスワード *</label>
+              <input class="mock-input" type="password" value="12345" readonly>
+            </div>
+            <button class="mock-btn primary" style="width:100%;">ログイン</button>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側 — サーバーで起きていること</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">1. API Route</div>
+            <div class="desc">
+              <span class="method-tag post">POST</span> <code>/api/auth</code><br><br>
+              受信データ:<br>
+              <code>{ username: "admin", password: "****" }</code><br>
+              + ヘッダー: <code>x-display-name: "田中太郎"</code>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box" style="border-color:var(--red-500); background:#fef2f2;">
+            <div class="box-header" style="color:#991b1b;">2. 認証チェック</div>
+            <div class="desc">
+              環境変数と照合:<br>
+              <code>BASIC_AUTH_USER</code> === username ?<br>
+              <code>BASIC_AUTH_PASSWORD</code> === password ?<br><br>
+              <strong style="color:var(--green-600);">一致 &rarr; 認証成功</strong><br>
+              <strong style="color:var(--red-500);">不一致 &rarr; 401 エラー</strong>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box" style="border-color:var(--orange-500); background:#fff7ed;">
+            <div class="box-header" style="color:#c2410c;">3. Cookie 設定</div>
+            <div class="desc">
+              <code>Set-Cookie: basic_auth=true</code><br>
+              &nbsp;&nbsp;httpOnly / secure / 7日間 / sameSite=lax<br><br>
+              <code>Set-Cookie: display_name=田中太郎</code><br>
+              &nbsp;&nbsp;非httpOnly（クライアント読取可） / 50文字上限
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box api">
+            <div class="box-header api-h">4. レスポンス</div>
+            <div class="desc">
+              <code>{ success: true }</code><br>
+              クライアント側で <code>router.push("/dashboard")</code> 実行
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div class="screen" id="screen-dashboard">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/dashboard</div>
+    </div>
+    <div class="split-view">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <!-- Sidebar -->
+        <div class="mock-sidebar">
+          <div class="logo">
+            <h2>AI Strategy Agent</h2>
+            <p>収益計画シミュレーション</p>
+          </div>
+          <nav>
+            <div class="nav-item active"><span class="icon">📊</span> ダッシュボード</div>
+            <div class="nav-item"><span class="icon">📈</span> シミュレーション</div>
+            <div class="nav-item"><span class="icon">📋</span> 履歴</div>
+            <div class="nav-item"><span class="icon">🔄</span> 比較</div>
+            <div class="nav-item"><span class="icon">🎯</span> KGI/KPI</div>
+            <div class="nav-item"><span class="icon">❓</span> ヘルプ</div>
+          </nav>
+          <div class="logout-btn">ログアウト</div>
+        </div>
+        <!-- Main -->
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:32px;">
+            <div class="mock-main .page-title" style="font-size:20px; font-weight:700;">ダッシュボード</div>
+            <div class="mock-main .page-subtitle" style="font-size:12px; color:var(--gray-500); margin-bottom:20px;">シミュレーションの概要と最近のアクティビティ</div>
+            <div class="stat-grid">
+              <div class="stat-card">
+                <div class="stat-value" style="color:var(--gray-800);">12</div>
+                <div class="stat-label">全シミュレーション</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color:var(--gray-800);">3</div>
+                <div class="stat-label">今月の作成数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" style="color:var(--violet-600);">5</div>
+                <div class="stat-label">KGI目標数</div>
+              </div>
+              <div class="stat-card" style="border-color:var(--violet-200); background:var(--violet-50);">
+                <button class="mock-btn primary sm">+ 新規シミュレーション</button>
+                <div class="stat-label" style="margin-top:6px;">クイックアクション</div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-card-title">直近のシミュレーション</div>
+              <table class="mock-table">
+                <thead><tr><th>名前</th><th>企業名</th><th>作成者</th><th>日付</th></tr></thead>
+                <tbody>
+                  <tr><td style="color:var(--violet-600); font-weight:600;">コールセンターAI化プラン</td><td>XX商事</td><td>田中太郎</td><td>2026-04-06</td></tr>
+                  <tr><td style="color:var(--violet-600); font-weight:600;">製造業サポート効率化</td><td>YY工業</td><td>鈴木一郎</td><td>2026-04-05</td></tr>
+                  <tr><td style="color:var(--violet-600); font-weight:600;">自治体窓口自動化</td><td>Z市</td><td>田中太郎</td><td>2026-04-04</td></tr>
+                </tbody>
+              </table>
+              <div style="text-align:right; margin-top:8px;">
+                <span style="font-size:11px; color:var(--violet-600); cursor:default;">全履歴を見る &rarr;</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">API Route</div>
+            <div class="desc">
+              <span class="method-tag get">GET</span> <code>/api/dashboard</code><br><br>
+              Cookie <code>basic_auth</code> を検証
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr; 並列実行 (Promise.all)</div>
+          <div class="grid-3" style="gap:8px; margin-bottom:8px;">
+            <div class="backend-box rpc" style="margin:0;">
+              <div class="box-header rpc-h">RPC #1</div>
+              <div class="desc"><code>get_simulations_count()</code><br>&darr;<br>{ total: 12, this_month: 3 }</div>
+            </div>
+            <div class="backend-box rpc" style="margin:0;">
+              <div class="box-header rpc-h">RPC #2</div>
+              <div class="desc"><code>get_simulations(p_limit: 5)</code><br>&darr;<br>直近5件の配列</div>
+            </div>
+            <div class="backend-box rpc" style="margin:0;">
+              <div class="box-header rpc-h">RPC #3</div>
+              <div class="desc"><code>get_kgi_count()</code><br>&darr;<br>{ count: 5 }</div>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box db">
+            <div class="box-header db-h">Supabase PostgreSQL</div>
+            <div class="desc">
+              全RPC関数は <strong>SECURITY DEFINER</strong><br>
+              RLS（行レベルセキュリティ）は全テーブルで遮断済み<br>
+              &rarr; クライアント直接アクセス不可<br>
+              &rarr; サーバー経由のRPC呼び出しのみ許可
+            </div>
+          </div>
+          <div class="flow-arrow-down">&uarr; JSON レスポンス</div>
+          <div class="backend-box api">
+            <div class="box-header api-h">レスポンス</div>
+            <div class="desc">
+              <code>{ total: 12, thisMonth: 3, kgiCount: 5, recent: [...] }</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SIMULATION ==================== -->
+<div class="screen" id="screen-simulation">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/simulations/new</div>
+    </div>
+    <div class="split-view">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar">
+          <div class="logo"><h2>AI Strategy Agent</h2><p>収益計画シミュレーション</p></div>
+          <nav>
+            <div class="nav-item"><span class="icon">📊</span> ダッシュボード</div>
+            <div class="nav-item active"><span class="icon">📈</span> シミュレーション</div>
+            <div class="nav-item"><span class="icon">📋</span> 履歴</div>
+            <div class="nav-item"><span class="icon">🔄</span> 比較</div>
+            <div class="nav-item"><span class="icon">🎯</span> KGI/KPI</div>
+            <div class="nav-item"><span class="icon">❓</span> ヘルプ</div>
+          </nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+              <div>
+                <div style="font-size:18px; font-weight:700;">新規シミュレーション</div>
+                <div style="font-size:11px; color:var(--gray-500);">コスト情報を入力すると即座にROIが計算されます</div>
+              </div>
+              <button class="mock-btn secondary sm">🖨 印刷 / PDF</button>
+            </div>
+
+            <!-- Presets -->
+            <div class="preset-bar">
+              <span class="preset-btn">カスタム</span>
+              <span class="preset-btn active">コールセンター(中)</span>
+              <span class="preset-btn">コールセンター(大)</span>
+              <span class="preset-btn">製造業</span>
+              <span class="preset-btn">小売/EC</span>
+              <span class="preset-btn">金融</span>
+              <span class="preset-btn">自治体</span>
+            </div>
+
+            <div style="display:flex; gap:16px;">
+              <!-- Left: Form -->
+              <div style="flex:2; min-width:0;">
+                <div class="mock-card">
+                  <div class="mock-card-title">現状コスト</div>
+                  <div class="form-row"><span class="mock-label">オペレーター人数</span><input class="mock-input sm" value="25" readonly><span class="unit">人</span><span class="tooltip">?</span></div>
+                  <div class="form-row"><span class="mock-label">人月単価</span><input class="mock-input sm" value="80" readonly><span class="unit">万円/人月</span></div>
+                  <div class="form-row"><span class="mock-label">人材コスト（自動）</span><input class="mock-input sm" value="2,000" readonly style="background:var(--gray-100); color:var(--gray-500);"><span class="unit">万円/月</span></div>
+                  <div class="form-row"><span class="mock-label">月間対応件数</span><input class="mock-input sm" value="15000" readonly><span class="unit">件/月</span></div>
+                  <div class="form-row"><span class="mock-label">1件平均対応時間</span><input class="mock-input sm" value="8" readonly><span class="unit">分</span></div>
+                  <div class="form-row"><span class="mock-label">現行システム費</span><input class="mock-input sm" value="80" readonly><span class="unit">万円/月</span></div>
+                  <div class="form-row"><span class="mock-label">教育研修費</span><input class="mock-input sm" value="200" readonly><span class="unit">万円/年</span></div>
+                  <div class="form-row"><span class="mock-label">その他コスト</span><input class="mock-input sm" value="30" readonly><span class="unit">万円/月</span></div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-title">AI導入コスト</div>
+                  <div class="form-row"><span class="mock-label">初期投資</span><input class="mock-input sm" value="6000" readonly><span class="unit">万円</span></div>
+                  <div class="form-row"><span class="mock-label">月額AI費用</span><input class="mock-input sm" value="200" readonly><span class="unit">万円/月</span></div>
+                  <div class="form-row"><span class="mock-label">API従量課金費用</span><input class="mock-input sm" value="10" readonly><span class="unit">万円/月</span></div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-title">削減見込み</div>
+                  <div class="form-row">
+                    <span class="mock-label">AI自動化率</span>
+                    <div style="flex:1;">
+                      <div class="mock-slider"><div class="fill" style="width:60%;"></div><div class="thumb" style="left:calc(60% - 8px);"></div></div>
+                    </div>
+                    <span style="font-size:13px; font-weight:700; color:var(--violet-600); min-width:36px; text-align:right;">60%</span>
+                  </div>
+                  <div class="form-row"><span class="mock-label">人員削減</span><input class="mock-input sm" value="4" readonly><span class="unit">人</span></div>
+                  <div class="form-row">
+                    <span class="mock-label">教育費削減率</span>
+                    <div style="flex:1;">
+                      <div class="mock-slider"><div class="fill" style="width:40%;"></div><div class="thumb" style="left:calc(40% - 8px);"></div></div>
+                    </div>
+                    <span style="font-size:13px; font-weight:700; color:var(--violet-600); min-width:36px; text-align:right;">40%</span>
+                  </div>
+                </div>
+                <div class="mock-card">
+                  <div class="mock-card-title">保存</div>
+                  <div class="form-row"><span class="mock-label">シミュレーション名</span><input class="mock-input sm" value="コールセンターAI化プラン" readonly></div>
+                  <div class="form-row"><span class="mock-label">企業名</span><input class="mock-input sm" value="XX商事" readonly></div>
+                  <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="mock-btn secondary sm">リセット</button>
+                    <button class="mock-btn primary sm">保存する</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Results -->
+              <div style="flex:3; min-width:0;">
+                <div class="stat-grid" style="margin-bottom:12px;">
+                  <div class="stat-card blue"><div class="stat-value" style="color:var(--blue-600);">¥150万</div><div class="stat-label">月間削減額</div><div class="stat-sub" style="color:var(--green-500);">-29.1%</div></div>
+                  <div class="stat-card green"><div class="stat-value" style="color:var(--green-600);">¥1,800万</div><div class="stat-label">年間効果額</div></div>
+                  <div class="stat-card violet"><div class="stat-value" style="color:var(--violet-600);">212.5%</div><div class="stat-label">ROI</div></div>
+                  <div class="stat-card orange"><div class="stat-value" style="color:var(--orange-600);">6.7ヶ月</div><div class="stat-label">投資回収期間</div></div>
+                </div>
+
+                <!-- Line chart mockup -->
+                <div class="mock-chart" style="margin-bottom:12px;">
+                  <div class="chart-title">投資回収シミュレーション</div>
+                  <svg class="line-chart-svg" viewBox="0 0 500 180" style="width:100%; height:180px;">
+                    <!-- Grid -->
+                    <line x1="40" y1="10" x2="40" y2="160" stroke="#e5e7eb" stroke-width="1"/>
+                    <line x1="40" y1="160" x2="490" y2="160" stroke="#e5e7eb" stroke-width="1"/>
+                    <line x1="40" y1="120" x2="490" y2="120" stroke="#f3f4f6" stroke-width="1" stroke-dasharray="4"/>
+                    <line x1="40" y1="80" x2="490" y2="80" stroke="#f3f4f6" stroke-width="1" stroke-dasharray="4"/>
+                    <line x1="40" y1="40" x2="490" y2="40" stroke="#f3f4f6" stroke-width="1" stroke-dasharray="4"/>
+                    <!-- Labels -->
+                    <text x="35" y="165" font-size="8" fill="#9ca3af" text-anchor="end">0</text>
+                    <text x="35" y="125" font-size="8" fill="#9ca3af" text-anchor="end">1000万</text>
+                    <text x="35" y="85" font-size="8" fill="#9ca3af" text-anchor="end">2000万</text>
+                    <text x="35" y="45" font-size="8" fill="#9ca3af" text-anchor="end">3000万</text>
+                    <text x="40" y="175" font-size="8" fill="#9ca3af">0</text>
+                    <text x="133" y="175" font-size="8" fill="#9ca3af">6</text>
+                    <text x="227" y="175" font-size="8" fill="#9ca3af">12</text>
+                    <text x="320" y="175" font-size="8" fill="#9ca3af">18</text>
+                    <text x="413" y="175" font-size="8" fill="#9ca3af">24ヶ月</text>
+                    <!-- Investment line (red dashed) -->
+                    <polyline points="40,127 133,107 227,87 320,67 413,47 490,30" fill="none" stroke="#ef4444" stroke-width="2" stroke-dasharray="6,3"/>
+                    <!-- Savings line (purple solid) -->
+                    <polyline points="40,160 133,115 227,70 320,28 413,10 490,10" fill="none" stroke="#7c3aed" stroke-width="2.5"/>
+                    <!-- Payback point -->
+                    <circle cx="170" cy="101" r="6" fill="#7c3aed" stroke="#fff" stroke-width="2"/>
+                    <text x="175" y="98" font-size="8" fill="#7c3aed">回収完了 6.7ヶ月</text>
+                    <!-- Legend -->
+                    <line x1="330" y1="15" x2="350" y2="15" stroke="#7c3aed" stroke-width="2"/>
+                    <text x="355" y="18" font-size="8" fill="#6b7280">累積コスト削減</text>
+                    <line x1="330" y1="27" x2="350" y2="27" stroke="#ef4444" stroke-width="2" stroke-dasharray="4"/>
+                    <text x="355" y="30" font-size="8" fill="#6b7280">累積投資額</text>
+                  </svg>
+                </div>
+
+                <!-- Bar chart mockup -->
+                <div class="mock-chart" style="margin-bottom:12px;">
+                  <div class="chart-title">月間コスト比較（導入前 vs 導入後）</div>
+                  <div class="bar-group">
+                    <div class="bar-pair"><div class="bars"><div class="bar before" style="height:100px;"></div><div class="bar after" style="height:50px;"></div></div><div class="bar-label">人件費</div></div>
+                    <div class="bar-pair"><div class="bars"><div class="bar before" style="height:40px;"></div><div class="bar after" style="height:50px;"></div></div><div class="bar-label">システム</div></div>
+                    <div class="bar-pair"><div class="bars"><div class="bar before" style="height:25px;"></div><div class="bar after" style="height:15px;"></div></div><div class="bar-label">教育費</div></div>
+                    <div class="bar-pair"><div class="bars"><div class="bar before" style="height:20px;"></div><div class="bar after" style="height:20px;"></div></div><div class="bar-label">その他</div></div>
+                  </div>
+                  <div style="display:flex; gap:16px; justify-content:center; margin-top:8px; font-size:10px; color:var(--gray-500);">
+                    <span><span style="display:inline-block; width:10px; height:10px; background:var(--gray-300); border-radius:2px; vertical-align:middle;"></span> 導入前</span>
+                    <span><span style="display:inline-block; width:10px; height:10px; background:var(--violet-500); border-radius:2px; vertical-align:middle;"></span> 導入後</span>
+                  </div>
+                </div>
+
+                <!-- Summary cards -->
+                <div class="grid-3">
+                  <div class="mock-card" style="text-align:center; background:var(--gray-50);"><div style="font-size:10px; color:var(--gray-500);">現在の月額コスト</div><div style="font-size:18px; font-weight:700;">¥526.7万</div></div>
+                  <div class="mock-card" style="text-align:center; background:var(--green-50);"><div style="font-size:10px; color:var(--gray-500);">AI導入後の月額</div><div style="font-size:18px; font-weight:700;">¥370万</div></div>
+                  <div class="mock-card" style="text-align:center; background:var(--violet-50);"><div style="font-size:10px; color:var(--gray-500);">月間削減額</div><div style="font-size:18px; font-weight:700; color:var(--violet-600);">¥156.7万</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box" style="border-color:var(--orange-500); background:#fff7ed;">
+            <div class="box-header" style="color:#c2410c;">Client-Side 計算（APIなし）</div>
+            <div class="desc">
+              入力値が変わるたびに <code>useMemo</code> で即時再計算<br><br>
+              <strong>lib/calc.ts — calculate(inputs)</strong><br><br>
+              <code>operatorCost</code><br>
+              &nbsp;= operatorCount &times; personMonthCost<br>
+              &nbsp;= 25 &times; 80 = <strong>2,000万</strong>（自動算出）<br><br>
+              <code>currentMonthlyCost</code><br>
+              &nbsp;= operatorCost + systemCost + trainingCost/12 + otherCost<br>
+              &nbsp;= 2000 + 300 + 500/12 + 100 = <strong>2,441.7万</strong><br><br>
+              <code>reducedOperatorCost</code><br>
+              &nbsp;= max(0, 2000 - 12 &times; 80) = <strong>1,040万</strong><br><br>
+              <code>afterMonthlyCost</code><br>
+              &nbsp;= 1040 + 200 + <strong>10</strong>(API) + 教育削減 + 100<br><br>
+              <code>ROI</code> = (年間削減 - (AI+API)年額) / 総投資 &times; 100<br><br>
+              <code>paybackMonths</code> = 初期投資 / monthlySaving
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr; 「保存する」クリック時のみ</div>
+          <div class="backend-box api">
+            <div class="box-header api-h">API Route</div>
+            <div class="desc">
+              <span class="method-tag post">POST</span> <code>/api/simulations</code><br><br>
+              送信: 15個の入力値 + name + company_name + created_by_name<br>
+              (created_by_name は Cookie <code>display_name</code> から取得)
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box rpc">
+            <div class="box-header rpc-h">RPC</div>
+            <div class="desc">
+              <code>insert_simulation(</code><br>
+              &nbsp;&nbsp;p_name, p_company_name, p_created_by_name,<br>
+              &nbsp;&nbsp;p_operator_count, p_operator_cost, p_person_month_cost,<br>
+              &nbsp;&nbsp;p_monthly_calls, p_avg_call_time,<br>
+              &nbsp;&nbsp;p_system_cost, p_training_cost, p_other_cost,<br>
+              &nbsp;&nbsp;p_initial_investment, p_monthly_ai_cost, p_monthly_api_cost,<br>
+              &nbsp;&nbsp;p_automation_rate, p_headcount_reduction,<br>
+              &nbsp;&nbsp;p_training_reduction_rate<br>
+              <code>)</code><br>
+              &rarr; 返却: <code>{ id: "uuid-xxx" }</code>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box db">
+            <div class="box-header db-h">simulations テーブル</div>
+            <div class="desc">1行 INSERT（19カラム + auto created_at）</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DETAIL ==================== -->
+<div class="screen" id="screen-detail">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/simulations/abc-123</div>
+    </div>
+    <div class="split-view" style="min-height:400px;">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar" style="min-width:160px; width:160px;">
+          <div class="logo"><h2 style="font-size:12px;">AI Strategy Agent</h2></div>
+          <nav>
+            <div class="nav-item"><span class="icon">📊</span> ダッシュボード</div>
+            <div class="nav-item active"><span class="icon">📈</span> シミュレーション</div>
+          </nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+              <div>
+                <div style="font-size:18px; font-weight:700;">コールセンターAI化プラン</div>
+                <div style="font-size:11px; color:var(--gray-500);">XX商事 | 作成者: 田中太郎 | 2026-04-06</div>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button class="mock-btn primary sm">🖨 印刷 / PDF</button>
+                <button class="mock-btn secondary sm">&larr; 一覧へ</button>
+              </div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-card"><div class="stat-value" style="color:var(--blue-600); font-size:18px;">¥150万</div><div class="stat-label">月間削減</div></div>
+              <div class="stat-card"><div class="stat-value" style="color:var(--green-600); font-size:18px;">¥1,800万</div><div class="stat-label">年間効果</div></div>
+              <div class="stat-card"><div class="stat-value" style="color:var(--violet-600); font-size:18px;">245%</div><div class="stat-label">ROI</div></div>
+              <div class="stat-card"><div class="stat-value" style="color:var(--orange-600); font-size:18px;">6.7ヶ月</div><div class="stat-label">回収期間</div></div>
+            </div>
+            <div class="mock-card" style="text-align:center; color:var(--gray-400); padding:40px;">
+              📈 投資回収グラフ + 📊 コスト比較グラフ<br>
+              <span style="font-size:11px;">（読み取り専用 — シミュレーション作成画面と同一のグラフ・テーブルを表示）</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">API Route</div>
+            <div class="desc"><span class="method-tag get">GET</span> <code>/api/simulations?id=abc-123</code></div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box rpc">
+            <div class="box-header rpc-h">RPC</div>
+            <div class="desc"><code>get_simulation_by_id(p_id: "abc-123")</code><br>&rarr; 全17フィールドを返却</div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box" style="border-color:var(--orange-500); background:#fff7ed;">
+            <div class="box-header" style="color:#c2410c;">Client-Side 再計算</div>
+            <div class="desc">
+              取得した入力値から <code>calculate()</code> を再実行<br>
+              結果はDBに保存されない（常に入力値から再計算）<br>
+              &rarr; 計算ロジックの一貫性を保証
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== COMPARE ==================== -->
+<div class="screen" id="screen-compare">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/compare</div>
+    </div>
+    <div class="split-view" style="min-height:500px;">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar" style="min-width:160px; width:160px;">
+          <div class="logo"><h2 style="font-size:12px;">AI Strategy Agent</h2></div>
+          <nav><div class="nav-item active"><span class="icon">🔄</span> 比較</div></nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="font-size:18px; font-weight:700; margin-bottom:12px;">シミュレーション比較</div>
+            <div class="mock-card">
+              <div class="mock-card-title">プラン選択（最大4つ）</div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <span class="mock-btn sm" style="background:var(--violet-600); color:#fff;">● プランA</span>
+                <span class="mock-btn sm" style="background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd;">● プランB</span>
+                <span class="mock-btn sm" style="background:#dcfce7; color:#15803d; border:1px solid #86efac;">● プランC</span>
+                <span class="mock-btn secondary sm" style="opacity:.5;">プランD</span>
+              </div>
+              <div style="font-size:10px; color:var(--gray-400); margin-top:6px;">選択中: 3/4</div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-card-title">KPI比較テーブル</div>
+              <table class="mock-table">
+                <thead><tr><th>指標</th><th style="color:var(--violet-600);">プランA</th><th style="color:var(--blue-600);">プランB</th><th style="color:var(--green-600);">プランC</th></tr></thead>
+                <tbody>
+                  <tr><td>月間コスト削減額</td><td style="color:var(--violet-600);">¥150万</td><td style="color:var(--blue-600);">¥200万</td><td style="color:var(--green-600);">¥80万</td></tr>
+                  <tr><td>年間効果額</td><td style="color:var(--violet-600);">¥1,800万</td><td style="color:var(--blue-600);">¥2,400万</td><td style="color:var(--green-600);">¥960万</td></tr>
+                  <tr><td>ROI</td><td style="color:var(--violet-600);">245%</td><td style="color:var(--blue-600);">310%</td><td style="color:var(--green-600);">180%</td></tr>
+                  <tr><td>投資回収期間</td><td style="color:var(--violet-600);">6.7ヶ月</td><td style="color:var(--blue-600);">5.2ヶ月</td><td style="color:var(--green-600);">9.1ヶ月</td></tr>
+                  <tr><td>初期投資</td><td>¥1,000万</td><td>¥1,500万</td><td>¥500万</td></tr>
+                  <tr><td>AI自動化率</td><td>60%</td><td>75%</td><td>40%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="grid-2">
+              <div class="mock-card" style="text-align:center; color:var(--gray-400); padding:30px;">📊 主要指標比較（棒グラフ）</div>
+              <div class="mock-card" style="text-align:center; color:var(--gray-400); padding:30px;">📊 導入後コスト内訳比較</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">API Route</div>
+            <div class="desc"><span class="method-tag get">GET</span> <code>/api/simulations</code> (全件取得)</div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box" style="border-color:var(--orange-500); background:#fff7ed;">
+            <div class="box-header" style="color:#c2410c;">Client-Side 比較計算</div>
+            <div class="desc">
+              選択された各プランごとに:<br>
+              1. <code>calculate(inputs)</code> &rarr; ROI等算出<br>
+              2. <code>generateCostComparison(inputs, results)</code><br>
+              &nbsp;&nbsp;&rarr; カテゴリ別コストデータ<br><br>
+              色分け配列:<br>
+              <span style="color:var(--violet-600);">■</span> violet &rarr;
+              <span style="color:var(--blue-600);">■</span> blue &rarr;
+              <span style="color:var(--green-600);">■</span> green &rarr;
+              <span style="color:var(--orange-600);">■</span> orange
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HISTORY ==================== -->
+<div class="screen" id="screen-history">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/history</div>
+    </div>
+    <div class="split-view" style="min-height:350px;">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar" style="min-width:160px; width:160px;">
+          <div class="logo"><h2 style="font-size:12px;">AI Strategy Agent</h2></div>
+          <nav><div class="nav-item active"><span class="icon">📋</span> 履歴</div></nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px;">
+              <div style="font-size:18px; font-weight:700;">シミュレーション履歴</div>
+              <button class="mock-btn primary sm">+ 新規作成</button>
+            </div>
+            <table class="mock-table">
+              <thead><tr><th>名前</th><th>企業名</th><th>作成者</th><th>日付</th><th>操作</th></tr></thead>
+              <tbody>
+                <tr><td>コールセンターAI化プラン</td><td>XX商事</td><td>田中太郎</td><td>2026-04-06</td><td><span style="color:var(--violet-600); cursor:default;">詳細</span></td></tr>
+                <tr><td>製造業サポート効率化</td><td>YY工業</td><td>鈴木一郎</td><td>2026-04-05</td><td><span style="color:var(--violet-600); cursor:default;">詳細</span></td></tr>
+                <tr><td>自治体窓口自動化</td><td>Z市</td><td>田中太郎</td><td>2026-04-04</td><td><span style="color:var(--violet-600); cursor:default;">詳細</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">API Route</div>
+            <div class="desc"><span class="method-tag get">GET</span> <code>/api/simulations</code><br>パラメータなし &rarr; limit=100で全件取得</div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box rpc">
+            <div class="box-header rpc-h">RPC</div>
+            <div class="desc"><code>get_simulations(p_limit: 100)</code><br>created_at DESC で返却</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== KGI/KPI ==================== -->
+<div class="screen" id="screen-kpi">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/kpi</div>
+    </div>
+    <div class="split-view" style="min-height:500px;">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar" style="min-width:160px; width:160px;">
+          <div class="logo"><h2 style="font-size:12px;">AI Strategy Agent</h2></div>
+          <nav><div class="nav-item active"><span class="icon">🎯</span> KGI/KPI</div></nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="font-size:18px; font-weight:700; margin-bottom:16px;">KGI/KPI管理</div>
+            <!-- Add form -->
+            <div class="mock-card violet">
+              <div class="mock-card-title">KGI追加</div>
+              <div style="display:flex; gap:6px; align-items:end; flex-wrap:wrap;">
+                <div style="flex:2;"><label class="mock-label">タイトル</label><input class="mock-input sm" placeholder="例: AI導入でコスト30%削減" readonly></div>
+                <div style="flex:1;"><label class="mock-label">目標値</label><input class="mock-input sm" placeholder="30" readonly></div>
+                <div style="flex:1;"><label class="mock-label">単位</label><select class="mock-input sm" style="appearance:auto;"><option>%</option></select></div>
+                <div style="flex:1;"><label class="mock-label">期限</label><input class="mock-input sm" type="date" readonly></div>
+                <button class="mock-btn primary sm">追加</button>
+              </div>
+            </div>
+            <!-- KGI list -->
+            <div class="kgi-card">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <span class="mock-badge violet">KGI</span>
+                  <span style="font-size:14px; font-weight:600; margin-left:6px;">AI導入によるコスト30%削減</span>
+                  <div style="font-size:11px; color:var(--gray-500); margin-top:4px;">目標: 30% | 期限: 2026-12-31 | 作成者: 田中太郎</div>
+                </div>
+                <button class="mock-btn danger sm">削除</button>
+              </div>
+              <!-- Child KPIs -->
+              <div class="kpi-card">
+                <div style="display:flex; justify-content:space-between;">
+                  <div>
+                    <span class="mock-badge blue">KPI</span>
+                    <span style="font-size:12px; margin-left:6px;">月間問い合わせ自動化率</span>
+                    <div style="font-size:10px; color:var(--gray-500); margin-top:2px;">目標: 60% | 期限: 2026-09-30</div>
+                  </div>
+                  <button class="mock-btn danger sm" style="font-size:10px;">削除</button>
+                </div>
+              </div>
+              <div class="kpi-card">
+                <div style="display:flex; justify-content:space-between;">
+                  <div>
+                    <span class="mock-badge blue">KPI</span>
+                    <span style="font-size:12px; margin-left:6px;">人員削減数</span>
+                    <div style="font-size:10px; color:var(--gray-500); margin-top:2px;">目標: 5人 | 期限: 2026-12-31</div>
+                  </div>
+                  <button class="mock-btn danger sm" style="font-size:10px;">削除</button>
+                </div>
+              </div>
+              <button class="mock-btn secondary sm" style="margin-left:20px; margin-top:6px;">+ KPI追加</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px;">
+          <div class="backend-box api">
+            <div class="box-header api-h">データ取得</div>
+            <div class="desc">
+              <span class="method-tag get">GET</span> <code>/api/kgi</code><br>
+              &darr; 並列RPC<br>
+              <code>get_kgi_goals()</code> + <code>get_kpi_metrics()</code>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box api">
+            <div class="box-header api-h">KGI操作</div>
+            <div class="desc">
+              <span class="method-tag post">POST</span> <code>/api/kgi</code> &rarr; <code>insert_kgi()</code><br>
+              <span class="method-tag delete">DELETE</span> <code>/api/kgi</code> &rarr; <code>delete_kgi()</code>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box api">
+            <div class="box-header api-h">KPI操作</div>
+            <div class="desc">
+              <span class="method-tag post">POST</span> <code>/api/kpi</code> &rarr; <code>insert_kpi(kgi_id紐付け)</code><br>
+              <span class="method-tag delete">DELETE</span> <code>/api/kpi</code> &rarr; <code>delete_kpi()</code>
+            </div>
+          </div>
+          <div class="flow-arrow-down">&darr;</div>
+          <div class="backend-box db">
+            <div class="box-header db-h">Database</div>
+            <div class="desc">
+              <strong>kgi_goals</strong>: id, title, target_value, unit, deadline, created_by_name<br>
+              <strong>kpi_metrics</strong>: id, kgi_id (FK &rarr; kgi_goals.id), title, target_value, unit, deadline
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== HELP ==================== -->
+<div class="screen" id="screen-help">
+  <div class="mockup-frame">
+    <div class="browser-bar">
+      <div class="browser-dots"><span></span><span></span><span></span></div>
+      <div class="browser-url">https://roi-simulator-delta.vercel.app/help</div>
+    </div>
+    <div class="split-view" style="min-height:400px;">
+      <div class="front-side" style="display:flex;">
+        <div class="side-label front">表側</div>
+        <div class="mock-sidebar" style="min-width:160px; width:160px;">
+          <div class="logo"><h2 style="font-size:12px;">AI Strategy Agent</h2></div>
+          <nav><div class="nav-item active"><span class="icon">❓</span> ヘルプ</div></nav>
+        </div>
+        <div class="mock-main">
+          <div class="page-content" style="padding-top:28px;">
+            <div style="font-size:18px; font-weight:700; margin-bottom:16px;">ヘルプ</div>
+            <div class="mock-card" style="background:var(--violet-50); border-color:var(--violet-200);">
+              <div style="font-size:14px; font-weight:700; color:var(--violet-700); margin-bottom:12px;">クイックスタート（3ステップ）</div>
+              <div style="display:flex; gap:16px; text-align:center;">
+                <div style="flex:1;">
+                  <div style="width:36px; height:36px; background:var(--violet-600); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">1</div>
+                  <div style="font-size:12px; margin-top:6px;">シミュレーション画面を開く</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="width:36px; height:36px; background:var(--violet-600); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">2</div>
+                  <div style="font-size:12px; margin-top:6px;">現状コストを入力</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="width:36px; height:36px; background:var(--violet-600); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:16px; font-weight:700;">3</div>
+                  <div style="font-size:12px; margin-top:6px;">結果を確認・保存</div>
+                </div>
+              </div>
+              <div style="text-align:center; margin-top:12px;">
+                <button class="mock-btn primary sm">シミュレーションを始める &rarr;</button>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div class="mock-card-title">FAQ</div>
+              <div class="accordion-item"><div class="accordion-header">はじめに <span>▼</span></div></div>
+              <div class="accordion-item"><div class="accordion-header">シミュレーションの使い方 <span>▶</span></div></div>
+              <div class="accordion-item"><div class="accordion-header">結果の見方 <span>▶</span></div></div>
+              <div class="accordion-item"><div class="accordion-header">KGI/KPI管理 <span>▶</span></div></div>
+            </div>
+            <div style="margin-top:12px; padding:12px; background:var(--gray-50); border-radius:8px; border:1px dashed var(--gray-300); text-align:center; color:var(--gray-400); font-size:12px;">
+              このページはAPI通信なし — 静的コンテンツのみ
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="back-side">
+        <div class="side-label back">裏側</div>
+        <div style="padding-top:24px; text-align:center; color:var(--gray-500);">
+          <div style="font-size:48px; margin-bottom:12px;">🌿</div>
+          <div style="font-size:14px; font-weight:600;">サーバー通信なし</div>
+          <div style="font-size:12px; margin-top:8px; max-width:280px; margin-left:auto; margin-right:auto;">
+            ヘルプページは完全に静的なコンテンツで構成されています。<br><br>
+            API呼び出し・DB接続は一切発生しません。<br><br>
+            ページ遷移はNext.js App Routerのクライアントサイドナビゲーションのみ。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== CHAT WIDGET (floating) ==================== -->
+<div class="chat-widget-mockup" id="chat-widget">
+  <div class="chat-panel" id="chat-panel">
+    <div class="chat-header"><span class="dot"></span> AIアシスタント</div>
+    <div class="chat-messages">
+      <div class="chat-msg assistant">何でもお気軽にお聞きください。ROIの計算方法や入力項目の説明など、お手伝いします。</div>
+      <div class="chat-msg user">ROIの目安を教えて</div>
+      <div class="chat-msg assistant">一般的にAI導入のROIは、コールセンター分野で150-300%、製造業で100-200%が目安です。自動化率60%以上を達成できると、投資回収は6ヶ月以内が期待できます。</div>
+    </div>
+    <div class="chat-suggestions">
+      <button>ROIの目安を教えて</button>
+      <button>入力項目がわからない</button>
+      <button>業界平均は？</button>
+    </div>
+    <div class="chat-input-bar">
+      <input placeholder="メッセージを入力...">
+      <button>送信</button>
+    </div>
+  </div>
+  <div class="chat-bubble" onclick="toggleChat()">💬</div>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.page-select button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function setView(mode) {
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('.split-view').forEach(sv => {
+    if (mode === 'front') {
+      sv.classList.add('full-view');
+    } else {
+      sv.classList.remove('full-view');
+    }
+  });
+}
+
+function toggleChat() {
+  document.getElementById('chat-panel').classList.toggle('open');
+}
+</script>
+
+</body>
+</html>
