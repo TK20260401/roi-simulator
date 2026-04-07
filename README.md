@@ -103,3 +103,10 @@ docs/
 ├── mockup.html                    # インタラクティブモックアップ（全画面切替・表裏分割表示）
 └── migration-operator-count-api-cost.sql  # v2 DBマイグレーション
 ```
+
+## ドキュメント（Web閲覧）
+
+| ドキュメント | URL |
+| --- | --- |
+| ワイヤーフレーム（表側/裏側） | https://roi-simulator-delta.vercel.app/docs/wireframe.html |
+| モックアップ（インタラクティブ） | https://roi-simulator-delta.vercel.app/docs/mockup.html |
