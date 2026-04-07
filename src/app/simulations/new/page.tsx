@@ -20,29 +20,29 @@ const PRESETS: Preset[] = [
     name: "カスタム",
     description: "自由に値を入力",
     inputs: {
-      operatorCost: 0, personMonthCost: 0, monthlyCalls: 0, avgCallTime: 0,
+      operatorCount: 0, operatorCost: 0, personMonthCost: 0, monthlyCalls: 0, avgCallTime: 0,
       systemCost: 0, trainingCost: 0, otherCost: 0,
-      initialInvestment: 0, monthlyAiCost: 0,
+      initialInvestment: 0, monthlyAiCost: 0, monthlyApiCost: 0,
       automationRate: 0, headcountReduction: 0, trainingReductionRate: 0,
     },
   },
   {
     name: "コールセンター（中規模）",
-    description: "50〜100席規模、月間1万〜2万コール",
+    description: "50〜100席規模、月間1万〜2万件対応",
     inputs: {
-      operatorCost: 2000, personMonthCost: 80, monthlyCalls: 15000, avgCallTime: 8,
+      operatorCount: 25, operatorCost: 2000, personMonthCost: 80, monthlyCalls: 15000, avgCallTime: 8,
       systemCost: 300, trainingCost: 500, otherCost: 100,
-      initialInvestment: 6000, monthlyAiCost: 200,
+      initialInvestment: 6000, monthlyAiCost: 200, monthlyApiCost: 10,
       automationRate: 60, headcountReduction: 12, trainingReductionRate: 60,
     },
   },
   {
     name: "コールセンター（大規模）",
-    description: "200席以上、月間5万コール超",
+    description: "200席以上、月間5万件対応超",
     inputs: {
-      operatorCost: 8000, personMonthCost: 75, monthlyCalls: 50000, avgCallTime: 7,
+      operatorCount: 107, operatorCost: 8025, personMonthCost: 75, monthlyCalls: 50000, avgCallTime: 7,
       systemCost: 800, trainingCost: 2000, otherCost: 500,
-      initialInvestment: 15000, monthlyAiCost: 500,
+      initialInvestment: 15000, monthlyAiCost: 500, monthlyApiCost: 30,
       automationRate: 50, headcountReduction: 40, trainingReductionRate: 50,
     },
   },
@@ -50,9 +50,9 @@ const PRESETS: Preset[] = [
     name: "製造業（問い合わせ窓口）",
     description: "製品サポート・技術問い合わせ対応",
     inputs: {
-      operatorCost: 800, personMonthCost: 85, monthlyCalls: 5000, avgCallTime: 12,
+      operatorCount: 10, operatorCost: 850, personMonthCost: 85, monthlyCalls: 5000, avgCallTime: 12,
       systemCost: 150, trainingCost: 300, otherCost: 50,
-      initialInvestment: 3000, monthlyAiCost: 100,
+      initialInvestment: 3000, monthlyAiCost: 100, monthlyApiCost: 5,
       automationRate: 40, headcountReduction: 4, trainingReductionRate: 40,
     },
   },
@@ -60,9 +60,9 @@ const PRESETS: Preset[] = [
     name: "小売・EC（カスタマーサポート）",
     description: "注文・返品・配送に関する問い合わせ",
     inputs: {
-      operatorCost: 1200, personMonthCost: 70, monthlyCalls: 20000, avgCallTime: 5,
+      operatorCount: 17, operatorCost: 1190, personMonthCost: 70, monthlyCalls: 20000, avgCallTime: 5,
       systemCost: 200, trainingCost: 400, otherCost: 80,
-      initialInvestment: 4000, monthlyAiCost: 150,
+      initialInvestment: 4000, monthlyAiCost: 150, monthlyApiCost: 10,
       automationRate: 70, headcountReduction: 10, trainingReductionRate: 65,
     },
   },
@@ -70,9 +70,9 @@ const PRESETS: Preset[] = [
     name: "金融・保険（コンタクトセンター）",
     description: "契約・請求・商品案内の対応",
     inputs: {
-      operatorCost: 3000, personMonthCost: 90, monthlyCalls: 12000, avgCallTime: 10,
+      operatorCount: 33, operatorCost: 2970, personMonthCost: 90, monthlyCalls: 12000, avgCallTime: 10,
       systemCost: 500, trainingCost: 800, otherCost: 200,
-      initialInvestment: 8000, monthlyAiCost: 300,
+      initialInvestment: 8000, monthlyAiCost: 300, monthlyApiCost: 15,
       automationRate: 45, headcountReduction: 15, trainingReductionRate: 50,
     },
   },
@@ -80,9 +80,9 @@ const PRESETS: Preset[] = [
     name: "自治体・官公庁（窓口業務）",
     description: "住民からの問い合わせ・手続き案内",
     inputs: {
-      operatorCost: 600, personMonthCost: 60, monthlyCalls: 8000, avgCallTime: 10,
+      operatorCount: 10, operatorCost: 600, personMonthCost: 60, monthlyCalls: 8000, avgCallTime: 10,
       systemCost: 100, trainingCost: 200, otherCost: 30,
-      initialInvestment: 2000, monthlyAiCost: 80,
+      initialInvestment: 2000, monthlyAiCost: 80, monthlyApiCost: 5,
       automationRate: 55, headcountReduction: 5, trainingReductionRate: 45,
     },
   },
@@ -106,7 +106,14 @@ export default function SimulationPage() {
   const [error, setError] = useState("");
 
   function update(field: keyof SimInputs, value: number) {
-    setInputs((prev) => ({ ...prev, [field]: value }));
+    setInputs((prev) => {
+      const next = { ...prev, [field]: value };
+      // operatorCount または personMonthCost が変わったら operatorCost を自動計算
+      if (field === "operatorCount" || field === "personMonthCost") {
+        next.operatorCost = next.operatorCount * next.personMonthCost;
+      }
+      return next;
+    });
   }
 
   const results = useMemo(() => calculate(inputs), [inputs]);
@@ -133,7 +140,8 @@ export default function SimulationPage() {
         name: simName,
         company_name: companyName || null,
         created_by_name: decodeURIComponent(displayName),
-        operator_cost: inputs.operatorCost,
+        operator_count: inputs.operatorCount,
+        operator_cost: inputs.operatorCount * inputs.personMonthCost,
         person_month_cost: inputs.personMonthCost,
         monthly_calls: inputs.monthlyCalls,
         avg_call_time: inputs.avgCallTime,
@@ -142,6 +150,7 @@ export default function SimulationPage() {
         other_cost: inputs.otherCost,
         initial_investment: inputs.initialInvestment,
         monthly_ai_cost: inputs.monthlyAiCost,
+        monthly_api_cost: inputs.monthlyApiCost,
         automation_rate: inputs.automationRate,
         headcount_reduction: inputs.headcountReduction,
         training_reduction_rate: inputs.trainingReductionRate,
@@ -260,11 +269,36 @@ export default function SimulationPage() {
 
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">現状コスト</p>
+              {/* オペレーター人数 */}
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-xs text-gray-600 sm:flex-1">オペレーター人数<HelpTip text="コールセンター等で稼働しているオペレーターの人数です" /></span>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={inputs.operatorCount} onChange={(e) => update("operatorCount", parseFloat(e.target.value) || 0)}
+                    className={ic + " w-full sm:w-[110px]"} />
+                  <span className="w-14 shrink-0 text-[10px] text-gray-400">人</span>
+                </div>
+              </div>
+              {/* 人月コスト */}
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-xs text-gray-600 sm:flex-1">人月コスト<HelpTip text="オペレーター1人あたりの月間コストです（給与+社保+間接費）" /></span>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={inputs.personMonthCost} onChange={(e) => update("personMonthCost", parseFloat(e.target.value) || 0)}
+                    className={ic + " w-full sm:w-[110px]"} />
+                  <span className="w-14 shrink-0 text-[10px] text-gray-400">万円/人月</span>
+                </div>
+              </div>
+              {/* オペレーター人材コスト（自動計算・読み取り専用） */}
+              <div className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                <span className="text-xs text-gray-600 sm:flex-1">オペレーター人材コスト<HelpTip text="人数 × 人月コストで自動計算されます" /></span>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={inputs.operatorCount * inputs.personMonthCost} readOnly
+                    className={ic + " w-full sm:w-[110px] bg-gray-100 text-gray-500 cursor-not-allowed"} />
+                  <span className="w-14 shrink-0 text-[10px] text-gray-400">万円/月</span>
+                </div>
+              </div>
               {([
-                ["operatorCost", "オペレーター人材コスト", "万円/月", "コールセンター等のオペレーター全員の月間人件費合計です"],
-                ["personMonthCost", "人月コスト", "万円/人月", "オペレーター1人あたりの月間コストです（給与+社保+間接費）"],
-                ["monthlyCalls", "月間コール件数", "件/月", "1ヶ月間に対応する問い合わせ・コールの総数です"],
-                ["avgCallTime", "1コール平均時間", "分", "1件の問い合わせにかかる平均対応時間です"],
+                ["monthlyCalls", "月間対応件数", "件/月", "1か月間に対応する問い合わせの総数です（電話・チャット・メール等すべてのチャネルを含む）"],
+                ["avgCallTime", "1件平均対応時間", "分", "1件の問い合わせにかかる平均対応時間です"],
                 ["systemCost", "現行システム運用費", "万円/月", "現在使用中のCTI・CRM等のシステム月額費用です"],
                 ["trainingCost", "新人教育費用", "万円/年", "年間のオペレーター研修・教育にかかる費用です"],
                 ["otherCost", "その他の費用", "万円/月", "上記以外の関連コスト（通信費、設備費等）です"],
@@ -285,6 +319,7 @@ export default function SimulationPage() {
               {([
                 ["initialInvestment", "初期費用（一括）", "万円", "AI導入・カスタマイズにかかる一括費用です"],
                 ["monthlyAiCost", "月額費用", "万円/月", "AIシステムの月額利用料（ランニングコスト）です"],
+                ["monthlyApiCost", "API従量課金費用", "万円/月", "LLM API等の従量課金で発生する月額費用です（OpenAI、Claude等）"],
               ] as [keyof SimInputs, string, string, string][]).map(([key, label, unit, tip]) => (
                 <div key={key} className="mb-2 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
                   <span className="text-xs text-gray-600 sm:flex-1">{label}<HelpTip text={tip} /></span>
@@ -301,7 +336,7 @@ export default function SimulationPage() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">削減見込み</p>
               <div className="mb-3">
                 <div className="mb-1 flex items-center justify-between">
-                  <span className="text-xs text-gray-600">AI自動化率<HelpTip text="コール対応のうち、AIが自動で処理できる割合の見込みです。60%なら10件中6件をAIが対応します" /></span>
+                  <span className="text-xs text-gray-600">AI自動化率<HelpTip text="問い合わせ対応のうち、AIが自動で処理できる割合の見込みです。60%なら10件中6件をAIが対応します" /></span>
                   <span className="text-sm font-bold text-violet-600">{inputs.automationRate}%</span>
                 </div>
                 <input type="range" min={0} max={100} step={5} value={inputs.automationRate}
@@ -438,14 +473,16 @@ export default function SimulationPage() {
             <div className="mt-4 rounded-xl border border-gray-200 bg-white p-5">
               <h4 className="mb-4 text-sm font-semibold text-gray-700">前提条件</h4>
               <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-3">
-                <div className="flex justify-between"><span className="text-gray-500">オペレーター人件費</span><span className="font-medium">¥{inputs.operatorCost.toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">オペレーター人数</span><span className="font-medium">{inputs.operatorCount}人</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">人月コスト</span><span className="font-medium">¥{inputs.personMonthCost.toLocaleString()}万/人月</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">月間コール件数</span><span className="font-medium">{inputs.monthlyCalls.toLocaleString()}件</span></div>
-                <div className="flex justify-between"><span className="text-gray-500">1コール平均時間</span><span className="font-medium">{inputs.avgCallTime}分</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">オペレーター人件費</span><span className="font-medium">¥{(inputs.operatorCount * inputs.personMonthCost).toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">月間対応件数</span><span className="font-medium">{inputs.monthlyCalls.toLocaleString()}件</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">1件平均対応時間</span><span className="font-medium">{inputs.avgCallTime}分</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">システム運用費</span><span className="font-medium">¥{inputs.systemCost.toLocaleString()}万/月</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">教育費用</span><span className="font-medium">¥{inputs.trainingCost.toLocaleString()}万/年</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">初期投資</span><span className="font-medium">¥{inputs.initialInvestment.toLocaleString()}万</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">AI月額費用</span><span className="font-medium">¥{inputs.monthlyAiCost.toLocaleString()}万/月</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">API従量課金費用</span><span className="font-medium">¥{inputs.monthlyApiCost.toLocaleString()}万/月</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">AI自動化率</span><span className="font-medium">{inputs.automationRate}%</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">人員削減見込み</span><span className="font-medium">{inputs.headcountReduction}人</span></div>
                 <div className="flex justify-between"><span className="text-gray-500">教育削減率</span><span className="font-medium">{inputs.trainingReductionRate}%</span></div>

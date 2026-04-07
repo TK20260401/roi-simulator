@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROI Simulator — ワイヤーフレーム（表側 / 裏側）</title>
+<style>
+  :root {
+    --violet: #7c3aed;
+    --violet-light: #ede9fe;
+    --violet-dark: #5b21b6;
+    --blue: #3b82f6;
+    --green: #22c55e;
+    --orange: #f97316;
+    --red: #ef4444;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --front-accent: #7c3aed;
+    --back-accent: #059669;
+    --back-bg: #ecfdf5;
+    --back-border: #34d399;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic UI', sans-serif; background: var(--gray-50); color: var(--gray-800); line-height: 1.6; }
+
+  /* Header */
+  .page-header { background: var(--gray-900); color: #fff; padding: 32px 0; text-align: center; }
+  .page-header h1 { font-size: 28px; margin-bottom: 4px; }
+  .page-header p { color: var(--gray-400); font-size: 14px; }
+  .legend { display: flex; gap: 24px; justify-content: center; margin-top: 16px; font-size: 13px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .legend-dot.front { background: var(--violet-light); border: 2px solid var(--violet); }
+  .legend-dot.back { background: var(--back-bg); border: 2px solid var(--back-border); }
+  .legend-dot.flow { background: none; border: 2px dashed var(--orange); }
+
+  /* Nav */
+  .page-nav { position: sticky; top: 0; z-index: 100; background: #fff; border-bottom: 1px solid var(--gray-200); padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .page-nav a { font-size: 12px; text-decoration: none; padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--gray-300); color: var(--gray-600); transition: all .15s; }
+  .page-nav a:hover { background: var(--violet); color: #fff; border-color: var(--violet); }
+
+  /* Section */
+  .section { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+  .section-title { font-size: 22px; font-weight: 700; margin-bottom: 4px; padding-bottom: 8px; border-bottom: 3px solid var(--violet); display: inline-block; }
+  .section-sub { color: var(--gray-500); font-size: 13px; margin-bottom: 24px; }
+
+  /* Wire frame container */
+  .wire { border: 2px solid var(--gray-300); border-radius: 12px; background: #fff; overflow: hidden; margin-bottom: 32px; }
+  .wire-header { background: var(--gray-100); padding: 10px 16px; font-weight: 600; font-size: 14px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; gap: 8px; }
+  .wire-header .route { font-family: monospace; font-size: 12px; background: var(--gray-200); padding: 2px 8px; border-radius: 4px; color: var(--gray-600); }
+  .wire-body { display: flex; gap: 0; min-height: 300px; }
+  .wire-body.vertical { flex-direction: column; }
+
+  /* Panels */
+  .front-panel { flex: 1; padding: 20px; border-right: 2px dashed var(--gray-200); position: relative; }
+  .front-panel::before { content: '表側 (UI)'; position: absolute; top: 8px; right: 8px; font-size: 10px; background: var(--violet-light); color: var(--violet); padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+  .back-panel { flex: 1; padding: 20px; background: var(--back-bg); position: relative; }
+  .back-panel::before { content: '裏側 (Server / DB)'; position: absolute; top: 8px; right: 8px; font-size: 10px; background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+
+  /* Wireframe elements */
+  .wf-box { border: 1.5px solid var(--gray-300); border-radius: 8px; padding: 10px; margin-bottom: 10px; background: var(--gray-50); }
+  .wf-box.highlight { border-color: var(--violet); background: var(--violet-light); }
+  .wf-box.api { border-color: var(--back-border); background: #d1fae5; }
+  .wf-box.db { border-color: #0ea5e9; background: #e0f2fe; border-style: dashed; }
+  .wf-box.rpc { border-color: #f59e0b; background: #fef3c7; }
+  .wf-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--gray-400); margin-bottom: 4px; letter-spacing: 0.5px; }
+  .wf-title { font-size: 14px; font-weight: 600; color: var(--gray-700); }
+  .wf-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .wf-field { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+  .wf-field .field-box { flex: 1; height: 28px; border: 1px solid var(--gray-300); border-radius: 4px; background: #fff; display: flex; align-items: center; padding: 0 8px; color: var(--gray-400); font-size: 11px; }
+  .wf-field .field-label { min-width: 100px; font-size: 12px; color: var(--gray-600); }
+  .wf-btn { display: inline-block; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: default; }
+  .wf-btn.primary { background: var(--violet); color: #fff; }
+  .wf-btn.secondary { background: var(--gray-200); color: var(--gray-600); }
+  .wf-btn.danger { background: var(--red); color: #fff; }
+  .wf-btn.small { padding: 3px 8px; font-size: 10px; }
+
+  /* Flow arrows */
+  .flow-arrow { text-align: center; padding: 6px 0; color: var(--orange); font-size: 18px; font-weight: 700; }
+  .flow-arrow span { font-size: 11px; color: var(--gray-500); font-weight: 400; display: block; }
+  .flow-h { display: flex; align-items: center; justify-content: center; padding: 0 8px; color: var(--orange); font-size: 20px; font-weight: 700; min-width: 40px; }
+
+  /* Chart placeholder */
+  .chart-placeholder { border: 1.5px dashed var(--gray-300); border-radius: 8px; padding: 20px; text-align: center; color: var(--gray-400); font-size: 12px; background: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,.02) 8px, rgba(0,0,0,.02) 16px); min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+  .chart-placeholder .chart-icon { font-size: 28px; opacity: 0.5; }
+
+  /* Grid helpers */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; }
+
+  /* Sidebar wireframe */
+  .sidebar-wire { width: 180px; min-width: 180px; background: var(--gray-800); padding: 16px 8px; border-radius: 8px 0 0 8px; color: #fff; font-size: 12px; }
+  .sidebar-wire .logo { font-weight: 700; font-size: 13px; margin-bottom: 16px; padding: 0 8px; }
+  .sidebar-wire .nav-item { padding: 6px 10px; border-radius: 6px; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; color: var(--gray-400); cursor: default; }
+  .sidebar-wire .nav-item.active { background: rgba(124,58,237,.2); color: #fff; }
+  .sidebar-wire .nav-icon { width: 16px; text-align: center; }
+
+  /* Table */
+  .wf-table { width: 100%; font-size: 11px; border-collapse: collapse; }
+  .wf-table th, .wf-table td { padding: 4px 8px; border: 1px solid var(--gray-200); text-align: left; }
+  .wf-table th { background: var(--gray-100); font-weight: 600; color: var(--gray-600); }
+
+  /* Tags / Badges */
+  .tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .tag.get { background: #dbeafe; color: #1d4ed8; }
+  .tag.post { background: #d1fae5; color: #065f46; }
+  .tag.delete { background: #fee2e2; color: #991b1b; }
+  .tag.rpc { background: #fef3c7; color: #92400e; }
+  .tag.cookie { background: #f3e8ff; color: #6b21a8; }
+
+  /* Data flow diagram */
+  .flow-diagram { display: flex; align-items: stretch; gap: 0; margin: 16px 0; }
+  .flow-node { flex: 1; border: 2px solid var(--gray-300); border-radius: 8px; padding: 12px; text-align: center; font-size: 12px; display: flex; flex-direction: column; justify-content: center; }
+  .flow-node.ui { border-color: var(--violet); background: var(--violet-light); }
+  .flow-node.api-node { border-color: var(--back-border); background: #d1fae5; }
+  .flow-node.db-node { border-color: #0ea5e9; background: #e0f2fe; }
+  .flow-node.calc-node { border-color: var(--orange); background: #fff7ed; }
+  .flow-connector { display: flex; align-items: center; justify-content: center; min-width: 50px; font-size: 11px; color: var(--gray-500); flex-direction: column; }
+  .flow-connector .arrow-line { font-size: 18px; color: var(--orange); }
+
+  /* Responsive */
+  @media (max-width: 800px) {
+    .wire-body { flex-direction: column; }
+    .front-panel { border-right: none; border-bottom: 2px dashed var(--gray-200); }
+    .sidebar-wire { width: 100%; border-radius: 8px 8px 0 0; display: flex; gap: 4px; flex-wrap: wrap; padding: 8px; }
+    .sidebar-wire .logo { width: 100%; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+    .flow-diagram { flex-direction: column; }
+    .flow-connector { min-height: 30px; min-width: auto; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== HEADER ==================== -->
+<div class="page-header">
+  <h1>ROI Simulator — Wireframe</h1>
+  <p>表側（ユーザーが見るUI）と裏側（サーバー・DB処理）の全体像</p>
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot front"></div> 表側（UI / ブラウザ）</div>
+    <div class="legend-item"><div class="legend-dot back"></div> 裏側（API / DB）</div>
+    <div class="legend-item"><div class="legend-dot flow"></div> データフロー</div>
+  </div>
+</div>
+
+<nav class="page-nav">
+  <a href="#overview">全体構成</a>
+  <a href="#login">ログイン</a>
+  <a href="#dashboard">ダッシュボード</a>
+  <a href="#simulation">シミュレーション</a>
+  <a href="#detail">詳細表示</a>
+  <a href="#compare">比較</a>
+  <a href="#history">履歴</a>
+  <a href="#kpi">KGI/KPI</a>
+  <a href="#help">ヘルプ</a>
+  <a href="#chat">AIチャット</a>
+  <a href="#auth-flow">認証フロー</a>
+  <a href="#db-schema">DBスキーマ</a>
+</nav>
+
+<!-- ==================== 全体構成 ==================== -->
+<div class="section" id="overview">
+  <h2 class="section-title">全体構成</h2>
+  <p class="section-sub">アプリの全画面とデータの流れ</p>
+
+  <div class="flow-diagram">
+    <div class="flow-node ui">
+      <div class="wf-label">Browser</div>
+      <strong>Next.js App Router</strong>
+      <div class="wf-desc" style="text-align:left; margin-top:8px;">
+        /login<br>/dashboard<br>/simulations/new<br>/simulations/[id]<br>/compare<br>/history<br>/kpi<br>/help
+      </div>
+    </div>
+    <div class="flow-connector">
+      <div class="arrow-line">&larr; JSON &rarr;</div>
+      <div>fetch()</div>
+    </div>
+    <div class="flow-node api-node">
+      <div class="wf-label">API Routes</div>
+      <strong>Next.js Server</strong>
+      <div class="wf-desc" style="text-align:left; margin-top:8px;">
+        /api/auth<br>/api/dashboard<br>/api/simulations<br>/api/kgi<br>/api/kpi<br>/api/chat
+      </div>
+    </div>
+    <div class="flow-connector">
+      <div class="arrow-line">&larr; RPC &rarr;</div>
+      <div>supabase.rpc()</div>
+    </div>
+    <div class="flow-node db-node">
+      <div class="wf-label">Database</div>
+      <strong>Supabase PostgreSQL</strong>
+      <div class="wf-desc" style="text-align:left; margin-top:8px;">
+        simulations<br>kgi_goals<br>kpi_metrics<br>
+        <span style="font-size:10px; color:#0369a1;">SECURITY DEFINER<br>RLS完全遮断</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="flow-diagram" style="max-width: 600px; margin: 24px auto;">
+    <div class="flow-node calc-node">
+      <div class="wf-label">Client-Side Calculation</div>
+      <strong>lib/calc.ts</strong>
+      <div class="wf-desc" style="margin-top:4px;">ROI / 回収期間 / コスト削減額 / グラフデータ<br>全てブラウザ内で即時計算（API不要）</div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ログイン ==================== -->
+<div class="section" id="login">
+  <h2 class="section-title">1. ログイン</h2>
+  <p class="section-sub">/login — ベーシック認証</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /login</span> ログイン画面</div>
+    <div class="wire-body">
+      <div class="front-panel" style="max-width:400px; margin:0 auto; border:none;">
+        <div style="text-align:center; margin-bottom:16px;">
+          <div style="font-size:20px; font-weight:700; color:var(--violet);">AI Strategy Agent</div>
+          <div style="font-size:11px; color:var(--gray-400);">収益計画シミュレーション</div>
+        </div>
+        <div class="wf-box">
+          <div class="wf-field">
+            <span class="field-label">表示名（任意）</span>
+            <div class="field-box">例: 田中太郎</div>
+          </div>
+          <div class="wf-field">
+            <span class="field-label">ユーザーID</span>
+            <div class="field-box">必須</div>
+          </div>
+          <div class="wf-field">
+            <span class="field-label">パスワード</span>
+            <div class="field-box">*****</div>
+          </div>
+          <div style="margin-top:10px; text-align:center;">
+            <span class="wf-btn primary">ログイン</span>
+          </div>
+          <div style="text-align:center; margin-top:6px; font-size:11px; color:var(--red);">エラー: IDまたはパスワードが正しくありません</div>
+        </div>
+      </div>
+      <div class="flow-h">&rarr;</div>
+      <div class="back-panel">
+        <div class="wf-box api">
+          <div class="wf-label">API</div>
+          <div class="wf-title"><span class="tag post">POST</span> /api/auth</div>
+          <div class="wf-desc" style="margin-top:8px;">
+            <strong>受信:</strong> { username, password }<br>
+            <strong>検証:</strong> env BASIC_AUTH_USER / BASIC_AUTH_PASSWORD<br>
+            <strong>成功時:</strong>
+          </div>
+          <div style="margin-top:6px;">
+            <span class="tag cookie">Cookie</span> <code>basic_auth</code> — httpOnly, 7日間
+          </div>
+          <div style="margin-top:4px;">
+            <span class="tag cookie">Cookie</span> <code>display_name</code> — 非httpOnly, 50文字上限
+          </div>
+          <div class="wf-desc" style="margin-top:6px;">
+            <strong>失敗時:</strong> 401 エラーレスポンス
+          </div>
+        </div>
+        <div class="flow-arrow">&darr;<span>認証成功</span></div>
+        <div class="wf-box" style="border-color:var(--violet); text-align:center;">
+          <div class="wf-desc">router.push("/dashboard")</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ダッシュボード ==================== -->
+<div class="section" id="dashboard">
+  <h2 class="section-title">2. ダッシュボード</h2>
+  <p class="section-sub">/dashboard — ログイン後のホーム画面</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /dashboard</span> ダッシュボード</div>
+    <div class="wire-body">
+      <div class="front-panel">
+        <div style="font-size:18px; font-weight:700; margin-bottom:12px;">ダッシュボード</div>
+        <div class="grid-4" style="margin-bottom:16px;">
+          <div class="wf-box" style="text-align:center;">
+            <div style="font-size:20px; font-weight:700;">12</div>
+            <div class="wf-desc">全シミュレーション</div>
+          </div>
+          <div class="wf-box" style="text-align:center;">
+            <div style="font-size:20px; font-weight:700;">3</div>
+            <div class="wf-desc">今月の作成数</div>
+          </div>
+          <div class="wf-box" style="text-align:center;">
+            <div style="font-size:20px; font-weight:700; color:var(--violet);">5</div>
+            <div class="wf-desc">KGI目標数</div>
+          </div>
+          <div class="wf-box highlight" style="text-align:center;">
+            <span class="wf-btn primary small">+ 新規シミュレーション</span>
+          </div>
+        </div>
+        <div class="wf-box">
+          <div class="wf-label">直近のシミュレーション</div>
+          <table class="wf-table">
+            <tr><th>名前</th><th>企業名</th><th>作成者</th><th>日付</th></tr>
+            <tr><td>プランA</td><td>XX商事</td><td>田中</td><td>2026-04-06</td></tr>
+            <tr><td>プランB</td><td>YY工業</td><td>鈴木</td><td>2026-04-05</td></tr>
+          </table>
+          <div style="text-align:right; margin-top:6px;"><a href="#" style="font-size:11px; color:var(--violet);">全履歴を見る &rarr;</a></div>
+        </div>
+      </div>
+      <div class="flow-h">&larr;</div>
+      <div class="back-panel">
+        <div class="wf-box api">
+          <div class="wf-label">API</div>
+          <div class="wf-title"><span class="tag get">GET</span> /api/dashboard</div>
+        </div>
+        <div class="flow-arrow">&darr;<span>supabase.rpc()</span></div>
+        <div class="wf-box rpc">
+          <div class="wf-label">RPC (SECURITY DEFINER)</div>
+          <div class="wf-desc">
+            <span class="tag rpc">RPC</span> get_simulations_count() &rarr; { total, this_month }<br>
+            <span class="tag rpc">RPC</span> get_simulations({ p_limit: 5 }) &rarr; 直近5件<br>
+            <span class="tag rpc">RPC</span> get_kgi_count() &rarr; KGI件数
+          </div>
+        </div>
+        <div class="flow-arrow">&darr;</div>
+        <div class="wf-box db">
+          <div class="wf-label">Database</div>
+          <div class="wf-desc">simulations テーブル<br>kgi_goals テーブル</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== シミュレーション ==================== -->
+<div class="section" id="simulation">
+  <h2 class="section-title">3. シミュレーション作成</h2>
+  <p class="section-sub">/simulations/new — ROI計算のメイン画面</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /simulations/new</span> 新規シミュレーション</div>
+    <div class="wire-body vertical">
+      <!-- Preset row -->
+      <div class="front-panel" style="border-right:none; border-bottom:2px dashed var(--gray-200); padding-bottom:12px;">
+        <div class="wf-label">業界プリセット（7種）</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <span class="wf-btn secondary">カスタム</span>
+          <span class="wf-btn primary">コールセンター(中)</span>
+          <span class="wf-btn secondary">コールセンター(大)</span>
+          <span class="wf-btn secondary">製造業</span>
+          <span class="wf-btn secondary">小売/EC</span>
+          <span class="wf-btn secondary">金融</span>
+          <span class="wf-btn secondary">自治体</span>
+        </div>
+        <div class="wf-desc" style="margin-top:4px;">選択するとフォームに業界標準値が自動入力される</div>
+      </div>
+
+      <!-- Main 2-panel -->
+      <div style="display:flex; gap:0;">
+        <!-- Left: Form -->
+        <div class="front-panel" style="flex:2;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div class="wf-title">入力フォーム</div>
+            <span class="wf-btn secondary small">印刷 / PDF</span>
+          </div>
+
+          <div class="wf-box">
+            <div class="wf-label">現状コスト</div>
+            <div class="wf-field"><span class="field-label">オペレーター人数</span><div class="field-box">人</div><span style="font-size:10px; color:var(--gray-400);">?</span></div>
+            <div class="wf-field"><span class="field-label">人月単価</span><div class="field-box">万円/人月</div></div>
+            <div class="wf-field"><span class="field-label">オペレーター人材コスト</span><div class="field-box" style="background:#f3f4f6; color:#9ca3af;">自動計算（人数 &times; 人月）</div></div>
+            <div class="wf-field"><span class="field-label">月間対応件数</span><div class="field-box">件/月</div></div>
+            <div class="wf-field"><span class="field-label">1件平均対応時間</span><div class="field-box">分</div></div>
+            <div class="wf-field"><span class="field-label">現行システム費</span><div class="field-box">万円/月</div></div>
+            <div class="wf-field"><span class="field-label">教育研修費</span><div class="field-box">万円/年</div></div>
+            <div class="wf-field"><span class="field-label">その他コスト</span><div class="field-box">万円/月</div></div>
+          </div>
+
+          <div class="wf-box">
+            <div class="wf-label">AI導入コスト</div>
+            <div class="wf-field"><span class="field-label">初期投資</span><div class="field-box">万円（一括）</div></div>
+            <div class="wf-field"><span class="field-label">月額AI費用</span><div class="field-box">万円/月</div></div>
+            <div class="wf-field"><span class="field-label">API従量課金費用</span><div class="field-box">万円/月</div></div>
+          </div>
+
+          <div class="wf-box">
+            <div class="wf-label">削減見込み</div>
+            <div class="wf-field">
+              <span class="field-label">AI自動化率</span>
+              <div class="field-box" style="position:relative;">
+                <div style="width:60%; height:6px; background:var(--violet); border-radius:3px;"></div>
+                <span style="position:absolute; right:8px; font-size:10px;">60%</span>
+              </div>
+            </div>
+            <div class="wf-field"><span class="field-label">人員削減</span><div class="field-box">人</div></div>
+            <div class="wf-field">
+              <span class="field-label">教育費削減率</span>
+              <div class="field-box" style="position:relative;">
+                <div style="width:40%; height:6px; background:var(--violet); border-radius:3px;"></div>
+                <span style="position:absolute; right:8px; font-size:10px;">40%</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="wf-box">
+            <div class="wf-label">保存</div>
+            <div class="wf-field"><span class="field-label">名前</span><div class="field-box">必須</div></div>
+            <div class="wf-field"><span class="field-label">企業名</span><div class="field-box">任意</div></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <span class="wf-btn secondary">リセット</span>
+              <span class="wf-btn primary">保存する</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Results -->
+        <div class="front-panel" style="flex:3; border-right:none;">
+          <div class="wf-title" style="margin-bottom:12px;">計算結果（リアルタイム）</div>
+
+          <div class="grid-4" style="margin-bottom:12px;">
+            <div class="wf-box" style="text-align:center;">
+              <div style="font-size:16px; font-weight:700; color:var(--blue);">¥150万</div>
+              <div class="wf-desc">月間削減額<br><span style="color:var(--green); font-size:10px;">-32%</span></div>
+            </div>
+            <div class="wf-box" style="text-align:center;">
+              <div style="font-size:16px; font-weight:700; color:var(--green);">¥1,800万</div>
+              <div class="wf-desc">年間効果額</div>
+            </div>
+            <div class="wf-box" style="text-align:center;">
+              <div style="font-size:16px; font-weight:700; color:var(--violet);">245%</div>
+              <div class="wf-desc">ROI</div>
+            </div>
+            <div class="wf-box" style="text-align:center;">
+              <div style="font-size:16px; font-weight:700; color:var(--orange);">6.7ヶ月</div>
+              <div class="wf-desc">投資回収期間</div>
+            </div>
+          </div>
+
+          <div class="chart-placeholder" style="margin-bottom:12px;">
+            <div class="chart-icon">📈</div>
+            <strong>投資回収シミュレーション（折れ線グラフ）</strong>
+            <div>X軸: 月（0-24） / Y軸: 累計額（万）</div>
+            <div style="display:flex; gap:16px; margin-top:4px;">
+              <span style="font-size:10px;">━━ 紫: 累積コスト削減</span>
+              <span style="font-size:10px;">- - 赤: 累積投資額</span>
+              <span style="font-size:10px;">● 回収完了ポイント</span>
+            </div>
+          </div>
+
+          <div class="chart-placeholder" style="margin-bottom:12px;">
+            <div class="chart-icon">📊</div>
+            <strong>月間コスト比較（棒グラフ）</strong>
+            <div>カテゴリ: 人件費 / システム / 教育費 / その他</div>
+            <div style="display:flex; gap:16px; margin-top:4px;">
+              <span style="font-size:10px;">■ 灰: 導入前</span>
+              <span style="font-size:10px;">■ 紫: 導入後</span>
+            </div>
+          </div>
+
+          <div class="grid-3" style="margin-bottom:12px;">
+            <div class="wf-box" style="text-align:center; background:var(--gray-100);">
+              <div class="wf-desc">現在の月額コスト</div>
+              <div style="font-weight:700;">¥470万</div>
+            </div>
+            <div class="wf-box" style="text-align:center; background:#f0fdf4;">
+              <div class="wf-desc">AI導入後の月額</div>
+              <div style="font-weight:700;">¥320万</div>
+            </div>
+            <div class="wf-box" style="text-align:center; background:var(--violet-light);">
+              <div class="wf-desc">月間削減額</div>
+              <div style="font-weight:700;">¥150万</div>
+            </div>
+          </div>
+
+          <div class="wf-box">
+            <div class="wf-label">コスト内訳テーブル（印刷用にも表示）</div>
+            <table class="wf-table">
+              <tr><th>項目</th><th>現状</th><th>導入後</th><th>削減額</th></tr>
+              <tr><td>人件費</td><td>300万</td><td>180万</td><td>120万</td></tr>
+              <tr><td>システム</td><td>80万</td><td>100万</td><td>-20万</td></tr>
+              <tr><td>API費用</td><td>0万</td><td>10万</td><td>-10万</td></tr>
+              <tr><td>教育費</td><td>50万</td><td>30万</td><td>20万</td></tr>
+              <tr><td>その他</td><td>40万</td><td>10万</td><td>30万</td></tr>
+              <tr style="font-weight:700;"><td>合計</td><td>470万</td><td>330万</td><td>140万</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Back panel for simulation -->
+      <div class="back-panel" style="border-top:2px dashed var(--gray-200);">
+        <div style="display:flex; gap:16px; flex-wrap:wrap;">
+          <div class="wf-box" style="flex:1; min-width:200px;">
+            <div class="wf-label">Client-Side (ブラウザ内)</div>
+            <div class="wf-title" style="color:var(--orange);">lib/calc.ts — calculate()</div>
+            <div class="wf-desc" style="margin-top:4px;">
+              <strong>入力 &rarr; useMemo &rarr; 即時計算</strong><br>
+              0. operatorCost = operatorCount &times; personMonthCost（自動算出）<br>
+              1. currentMonthlyCost = 人件費 + システム + 教育/12 + その他<br>
+              2. reducedOperator = max(0, 人件費 - 削減人数 &times; 人月単価)<br>
+              3. afterMonthlyCost = reduced + AI費 + API費 + 教育削減 + その他<br>
+              4. monthlySaving = current - after<br>
+              5. ROI = (年間削減 - (AI+API)年額) / 総投資 &times; 100<br>
+              6. payback = 初期投資 / monthlySaving
+            </div>
+          </div>
+          <div class="wf-box api" style="flex:1; min-width:200px;">
+            <div class="wf-label">保存時のみAPI</div>
+            <div class="wf-title"><span class="tag post">POST</span> /api/simulations</div>
+            <div class="wf-desc" style="margin-top:4px;">
+              15個の入力値 + name + company_name + display_name を送信
+            </div>
+            <div style="margin-top:8px;">
+              <span class="tag rpc">RPC</span> insert_simulation(p_name, p_operator_count, ...15 fields)
+            </div>
+          </div>
+          <div class="wf-box db" style="flex:1; min-width:200px;">
+            <div class="wf-label">Database</div>
+            <div class="wf-title">simulations テーブル</div>
+            <div class="wf-desc" style="margin-top:4px;">
+              id (UUID), name, company_name, created_by_name,<br>
+              operator_count, operator_cost, person_month_cost, monthly_calls,<br>
+              avg_call_time, system_cost, training_cost, other_cost,<br>
+              initial_investment, monthly_ai_cost, monthly_api_cost,<br>
+              automation_rate, headcount_reduction, training_reduction_rate,<br>
+              created_at
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 詳細表示 ==================== -->
+<div class="section" id="detail">
+  <h2 class="section-title">4. シミュレーション詳細</h2>
+  <p class="section-sub">/simulations/[id] — 保存済みデータの閲覧・印刷</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /simulations/:id</span> 詳細表示</div>
+    <div class="wire-body">
+      <div class="front-panel">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+          <div>
+            <div class="wf-title">プランA — XX商事</div>
+            <div class="wf-desc">作成者: 田中 / 2026-04-06</div>
+          </div>
+          <div style="display:flex; gap:6px;">
+            <span class="wf-btn primary small">印刷 / PDF</span>
+            <span class="wf-btn secondary small">&larr; 一覧へ</span>
+          </div>
+        </div>
+        <div class="grid-4" style="margin-bottom:8px;">
+          <div class="wf-box" style="text-align:center;"><div style="font-weight:700; color:var(--blue);">¥150万</div><div class="wf-desc">月間削減</div></div>
+          <div class="wf-box" style="text-align:center;"><div style="font-weight:700; color:var(--green);">¥1,800万</div><div class="wf-desc">年間効果</div></div>
+          <div class="wf-box" style="text-align:center;"><div style="font-weight:700; color:var(--violet);">245%</div><div class="wf-desc">ROI</div></div>
+          <div class="wf-box" style="text-align:center;"><div style="font-weight:700; color:var(--orange);">6.7ヶ月</div><div class="wf-desc">回収期間</div></div>
+        </div>
+        <div class="chart-placeholder" style="min-height:60px;">📈 投資回収グラフ + 📊 コスト比較（読み取り専用）</div>
+        <div class="wf-desc" style="margin-top:8px;">コスト内訳テーブル + 前提条件テーブル（印刷最適化済み）</div>
+      </div>
+      <div class="flow-h">&larr;</div>
+      <div class="back-panel">
+        <div class="wf-box api">
+          <div class="wf-title"><span class="tag get">GET</span> /api/simulations?id={id}</div>
+        </div>
+        <div class="flow-arrow">&darr;</div>
+        <div class="wf-box rpc">
+          <span class="tag rpc">RPC</span> get_simulation_by_id(p_id)
+          <div class="wf-desc" style="margin-top:4px;">全フィールド取得 &rarr; クライアントでcalculate()再計算</div>
+        </div>
+        <div class="flow-arrow">&darr;</div>
+        <div class="wf-box db">
+          <div class="wf-desc">simulations テーブル（1行取得）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 比較 ==================== -->
+<div class="section" id="compare">
+  <h2 class="section-title">5. シミュレーション比較</h2>
+  <p class="section-sub">/compare — 最大4プランの並列比較</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /compare</span> 比較画面</div>
+    <div class="wire-body vertical">
+      <div class="front-panel" style="border-right:none; border-bottom:2px dashed var(--gray-200);">
+        <div class="wf-label">プラン選択（最大4つ）</div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+          <span class="wf-btn primary small">● プランA</span>
+          <span class="wf-btn secondary small" style="background:#dbeafe; color:#1d4ed8;">● プランB</span>
+          <span class="wf-btn secondary small">プランC</span>
+          <span class="wf-btn secondary small" style="opacity:.4;">プランD（上限到達で無効）</span>
+        </div>
+        <div class="wf-desc" style="margin-top:4px;">選択中: 2/4</div>
+      </div>
+      <div class="front-panel" style="border-right:none;">
+        <div class="wf-box">
+          <div class="wf-label">KPI比較テーブル</div>
+          <table class="wf-table">
+            <tr><th>指標</th><th style="color:var(--violet);">プランA</th><th style="color:var(--blue);">プランB</th></tr>
+            <tr><td>月間コスト削減額</td><td>¥150万</td><td>¥200万</td></tr>
+            <tr><td>年間効果額</td><td>¥1,800万</td><td>¥2,400万</td></tr>
+            <tr><td>ROI</td><td>245%</td><td>310%</td></tr>
+            <tr><td>投資回収期間</td><td>6.7ヶ月</td><td>5.2ヶ月</td></tr>
+            <tr><td>初期投資</td><td>¥1,000万</td><td>¥1,500万</td></tr>
+            <tr><td>AI自動化率</td><td>60%</td><td>75%</td></tr>
+            <tr><td>削減率</td><td>32%</td><td>42%</td></tr>
+          </table>
+        </div>
+        <div class="grid-2">
+          <div class="chart-placeholder">
+            <div class="chart-icon">📊</div>
+            <strong>主要指標比較</strong>
+            <div>月間削減 / 年間効果 / ROI / 回収期間</div>
+          </div>
+          <div class="chart-placeholder">
+            <div class="chart-icon">📊</div>
+            <strong>導入後コスト内訳比較</strong>
+            <div>人件費 / システム / 教育費 / その他</div>
+          </div>
+        </div>
+      </div>
+      <div class="back-panel">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div class="wf-box api" style="flex:1;">
+            <div class="wf-title"><span class="tag get">GET</span> /api/simulations</div>
+            <div class="wf-desc">全シミュレーション取得（選択肢用）</div>
+          </div>
+          <div class="wf-box" style="flex:1; border-color:var(--orange); background:#fff7ed;">
+            <div class="wf-label">Client-Side</div>
+            <div class="wf-desc">選択された各プランごとに calculate() + generateCostComparison() を実行<br>色分け: violet / blue / green / orange</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 履歴 ==================== -->
+<div class="section" id="history">
+  <h2 class="section-title">6. シミュレーション履歴</h2>
+  <p class="section-sub">/history — 保存済み一覧</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /history</span> 履歴一覧</div>
+    <div class="wire-body">
+      <div class="front-panel">
+        <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+          <div class="wf-title">シミュレーション履歴</div>
+          <span class="wf-btn primary small">+ 新規作成</span>
+        </div>
+        <table class="wf-table">
+          <tr><th>名前</th><th>企業名</th><th>作成者</th><th>日付</th><th>操作</th></tr>
+          <tr><td>プランA</td><td>XX商事</td><td>田中</td><td>2026-04-06</td><td><a href="#" style="color:var(--violet); font-size:11px;">詳細</a></td></tr>
+          <tr><td>プランB</td><td>YY工業</td><td>鈴木</td><td>2026-04-05</td><td><a href="#" style="color:var(--violet); font-size:11px;">詳細</a></td></tr>
+          <tr><td>プランC</td><td>ZZ銀行</td><td>田中</td><td>2026-04-04</td><td><a href="#" style="color:var(--violet); font-size:11px;">詳細</a></td></tr>
+        </table>
+      </div>
+      <div class="flow-h">&larr;</div>
+      <div class="back-panel">
+        <div class="wf-box api">
+          <div class="wf-title"><span class="tag get">GET</span> /api/simulations</div>
+          <div class="wf-desc">limit=100、作成日降順</div>
+        </div>
+        <div class="flow-arrow">&darr;</div>
+        <div class="wf-box rpc">
+          <span class="tag rpc">RPC</span> get_simulations(p_limit: 100)
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== KGI/KPI ==================== -->
+<div class="section" id="kpi">
+  <h2 class="section-title">7. KGI/KPI管理</h2>
+  <p class="section-sub">/kpi — 目標・指標の階層管理</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /kpi</span> KGI/KPI管理</div>
+    <div class="wire-body vertical">
+      <div class="front-panel" style="border-right:none;">
+        <!-- KGI Add -->
+        <div class="wf-box">
+          <div class="wf-label">KGI追加フォーム</div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:end;">
+            <div class="wf-field" style="flex:2;"><div class="field-box">KGIタイトル</div></div>
+            <div class="wf-field" style="flex:1;"><div class="field-box">目標値</div></div>
+            <div class="wf-field" style="flex:1;"><div class="field-box">単位 (%, 万円...)</div></div>
+            <div class="wf-field" style="flex:1;"><div class="field-box">期限</div></div>
+            <span class="wf-btn primary small">追加</span>
+          </div>
+        </div>
+
+        <!-- KGI List -->
+        <div class="wf-box" style="border-left:3px solid var(--violet);">
+          <div style="display:flex; justify-content:space-between;">
+            <div>
+              <span class="tag" style="background:var(--violet-light); color:var(--violet);">KGI</span>
+              <span class="wf-title" style="margin-left:6px;">AI導入によるコスト30%削減</span>
+            </div>
+            <span class="wf-btn danger small">削除</span>
+          </div>
+          <div class="wf-desc">目標: 30% | 期限: 2026-12-31 | 作成: 田中</div>
+
+          <!-- Child KPI -->
+          <div style="margin-left:24px; margin-top:10px;">
+            <div class="wf-box" style="border-left:3px solid var(--blue); background:#f0f9ff;">
+              <div style="display:flex; justify-content:space-between;">
+                <div>
+                  <span class="tag" style="background:#dbeafe; color:#1d4ed8;">KPI</span>
+                  <span style="font-size:13px; margin-left:6px;">月間問い合わせ自動化率</span>
+                </div>
+                <span class="wf-btn danger small">削除</span>
+              </div>
+              <div class="wf-desc">目標: 60% | 期限: 2026-09-30</div>
+            </div>
+            <div class="wf-box" style="border-left:3px solid var(--blue); background:#f0f9ff;">
+              <div>
+                <span class="tag" style="background:#dbeafe; color:#1d4ed8;">KPI</span>
+                <span style="font-size:13px; margin-left:6px;">人員削減数</span>
+              </div>
+              <div class="wf-desc">目標: 5人 | 期限: 2026-12-31</div>
+            </div>
+            <span class="wf-btn secondary small" style="margin-top:4px;">+ KPI追加</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="back-panel">
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <div class="wf-box api" style="flex:1; min-width:180px;">
+            <div class="wf-title"><span class="tag get">GET</span> /api/kgi</div>
+            <div class="wf-desc">KGI + KPI 一括取得</div>
+            <div style="margin-top:6px;">
+              <span class="tag rpc">RPC</span> get_kgi_goals()<br>
+              <span class="tag rpc">RPC</span> get_kpi_metrics()
+            </div>
+          </div>
+          <div class="wf-box api" style="flex:1; min-width:180px;">
+            <div class="wf-title"><span class="tag post">POST</span> /api/kgi</div>
+            <div class="wf-desc">KGI追加</div>
+            <div style="margin-top:4px;"><span class="tag rpc">RPC</span> insert_kgi()</div>
+            <div style="margin-top:8px;">
+              <div class="wf-title"><span class="tag post">POST</span> /api/kpi</div>
+              <div class="wf-desc">KPI追加（kgi_id紐付け）</div>
+              <div style="margin-top:4px;"><span class="tag rpc">RPC</span> insert_kpi()</div>
+            </div>
+          </div>
+          <div class="wf-box db" style="flex:1; min-width:180px;">
+            <div class="wf-label">Database</div>
+            <div class="wf-desc">
+              <strong>kgi_goals</strong>: id, title, target_value, unit, deadline, created_by_name<br>
+              <strong>kpi_metrics</strong>: id, kgi_id (FK), title, target_value, unit, deadline
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== ヘルプ ==================== -->
+<div class="section" id="help">
+  <h2 class="section-title">8. ヘルプ</h2>
+  <p class="section-sub">/help — ガイド・FAQ</p>
+  <div class="wire">
+    <div class="wire-header"><span class="route">GET /help</span> ヘルプ</div>
+    <div class="wire-body">
+      <div class="front-panel" style="border-right:none;">
+        <div class="wf-box highlight">
+          <div class="wf-label">クイックスタート（3ステップ）</div>
+          <div style="display:flex; gap:12px; margin-top:6px;">
+            <div style="text-align:center; flex:1;">
+              <div style="width:28px; height:28px; background:var(--violet); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">1</div>
+              <div class="wf-desc">シミュレーション画面を開く</div>
+            </div>
+            <div style="text-align:center; flex:1;">
+              <div style="width:28px; height:28px; background:var(--violet); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">2</div>
+              <div class="wf-desc">現状コストを入力</div>
+            </div>
+            <div style="text-align:center; flex:1;">
+              <div style="width:28px; height:28px; background:var(--violet); color:#fff; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;">3</div>
+              <div class="wf-desc">結果を確認・保存</div>
+            </div>
+          </div>
+          <div style="text-align:center; margin-top:10px;">
+            <span class="wf-btn primary small">シミュレーションを始める &rarr;</span>
+          </div>
+        </div>
+        <div class="wf-box">
+          <div class="wf-label">FAQ（アコーディオン）</div>
+          <div style="border-bottom:1px solid var(--gray-200); padding:6px 0;">
+            <div style="font-size:12px; font-weight:600;">▼ はじめに</div>
+          </div>
+          <div style="border-bottom:1px solid var(--gray-200); padding:6px 0;">
+            <div style="font-size:12px; font-weight:600;">▶ シミュレーションの使い方</div>
+          </div>
+          <div style="border-bottom:1px solid var(--gray-200); padding:6px 0;">
+            <div style="font-size:12px; font-weight:600;">▶ 結果の見方</div>
+          </div>
+          <div style="padding:6px 0;">
+            <div style="font-size:12px; font-weight:600;">▶ KGI/KPI管理</div>
+          </div>
+        </div>
+        <div class="wf-desc" style="margin-top:8px;">※ ヘルプページはAPI通信なし（静的コンテンツ）</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== AIチャット ==================== -->
+<div class="section" id="chat">
+  <h2 class="section-title">9. AIチャットウィジェット</h2>
+  <p class="section-sub">全画面共通 — 右下フローティングボタン</p>
+  <div class="wire">
+    <div class="wire-header">ChatWidget — 常駐コンポーネント</div>
+    <div class="wire-body">
+      <div class="front-panel">
+        <div style="display:flex; gap:16px;">
+          <!-- Button -->
+          <div style="text-align:center;">
+            <div style="width:56px; height:56px; background:var(--violet); border-radius:50%; display:flex; align-items:center; justify-content:center; color:#fff; font-size:24px; box-shadow: 0 4px 12px rgba(124,58,237,.3);">💬</div>
+            <div class="wf-desc" style="margin-top:4px;">固定ボタン<br>(右下)</div>
+          </div>
+          <!-- Chat panel -->
+          <div class="wf-box" style="flex:1; max-width:300px;">
+            <div style="background:var(--violet); color:#fff; padding:8px 12px; border-radius:6px 6px 0 0; font-size:12px; font-weight:600;">
+              <span style="display:inline-block; width:8px; height:8px; background:var(--green); border-radius:50; margin-right:6px;"></span>
+              AIアシスタント
+            </div>
+            <div style="padding:8px; font-size:11px; min-height:120px; background:#fff; border:1px solid var(--gray-200);">
+              <div style="background:var(--gray-100); padding:6px 8px; border-radius:8px; margin-bottom:6px; max-width:80%;">何でもお聞きください</div>
+              <div style="background:var(--violet); color:#fff; padding:6px 8px; border-radius:8px; margin-bottom:6px; max-width:80%; margin-left:auto; text-align:right;">ROIの目安を教えて</div>
+              <div style="background:var(--gray-100); padding:6px 8px; border-radius:8px; max-width:80%;">一般的にAI導入のROIは...</div>
+            </div>
+            <div style="display:flex; gap:4px; flex-wrap:wrap; padding:4px 8px; background:#fafafa; border:1px solid var(--gray-200); border-top:none;">
+              <span style="font-size:9px; border:1px solid var(--violet); color:var(--violet); padding:2px 6px; border-radius:9999px;">ROIの目安を教えて</span>
+              <span style="font-size:9px; border:1px solid var(--violet); color:var(--violet); padding:2px 6px; border-radius:9999px;">入力項目がわからない</span>
+            </div>
+            <div style="display:flex; gap:4px; padding:6px 8px; border:1px solid var(--gray-200); border-top:none; border-radius:0 0 6px 6px;">
+              <div class="field-box" style="flex:1; height:24px; font-size:10px;">メッセージを入力...</div>
+              <span class="wf-btn primary small">送信</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flow-h">&rarr;</div>
+      <div class="back-panel">
+        <div class="wf-box api">
+          <div class="wf-title"><span class="tag post">POST</span> /api/chat</div>
+          <div class="wf-desc" style="margin-top:4px;">
+            <strong>送信:</strong> { message, context? }<br>
+            context = 現在のシミュレーション入力値（任意）
+          </div>
+        </div>
+        <div class="flow-arrow">&darr;</div>
+        <div class="wf-box rpc" style="border-color:#6366f1; background:#eef2ff;">
+          <div class="wf-label">Anthropic API</div>
+          <div class="wf-desc">
+            <strong>モデル:</strong> claude-sonnet-4-20250514<br>
+            <strong>max_tokens:</strong> 500<br>
+            <strong>System prompt:</strong> ROI/KPI アドバイザー役<br>
+            <strong>APIキー:</strong> ANTHROPIC_API_KEY (env)
+          </div>
+        </div>
+        <div class="flow-arrow">&uarr;</div>
+        <div class="wf-box api">
+          <div class="wf-desc"><strong>返却:</strong> { reply: "..." }</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== 認証フロー ==================== -->
+<div class="section" id="auth-flow">
+  <h2 class="section-title">10. 認証フロー全体図</h2>
+  <p class="section-sub">proxy.ts (ミドルウェア) + Cookie方式</p>
+  <div class="wire">
+    <div class="wire-header">認証アーキテクチャ</div>
+    <div class="wire-body vertical">
+      <div style="padding:20px;">
+        <div class="flow-diagram">
+          <div class="flow-node ui">
+            <strong>/login</strong>
+            <div class="wf-desc">ID + PW 入力</div>
+          </div>
+          <div class="flow-connector">
+            <div class="arrow-line">&rarr;</div>
+            <div>POST</div>
+          </div>
+          <div class="flow-node api-node">
+            <strong>/api/auth</strong>
+            <div class="wf-desc">env検証</div>
+          </div>
+          <div class="flow-connector">
+            <div class="arrow-line">&rarr;</div>
+            <div>Set-Cookie</div>
+          </div>
+          <div class="flow-node" style="border-color:var(--orange); background:#fff7ed;">
+            <strong>Cookie</strong>
+            <div class="wf-desc">basic_auth (httpOnly)<br>display_name</div>
+          </div>
+          <div class="flow-connector">
+            <div class="arrow-line">&rarr;</div>
+            <div>redirect</div>
+          </div>
+          <div class="flow-node ui">
+            <strong>/dashboard</strong>
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <div class="flow-diagram">
+            <div class="flow-node ui">
+              <strong>任意のページ</strong>
+              <div class="wf-desc">fetch(/api/*)</div>
+            </div>
+            <div class="flow-connector">
+              <div class="arrow-line">&rarr;</div>
+              <div>Cookie付きリクエスト</div>
+            </div>
+            <div class="flow-node" style="border-color:var(--red); background:#fef2f2;">
+              <strong>proxy.ts</strong>
+              <div class="wf-desc">basic_auth Cookie確認<br>未認証 &rarr; /login にリダイレクト</div>
+            </div>
+            <div class="flow-connector">
+              <div class="arrow-line">&rarr;</div>
+              <div>認証OK</div>
+            </div>
+            <div class="flow-node api-node">
+              <strong>API Route</strong>
+              <div class="wf-desc">Cookie再検証<br>処理実行</div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="wf-box" style="max-width:400px;">
+            <div class="wf-label">ログアウト</div>
+            <div class="wf-desc">
+              <span class="tag delete">DELETE</span> /api/auth &rarr; Cookie削除 &rarr; /login へリダイレクト
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== DBスキーマ ==================== -->
+<div class="section" id="db-schema">
+  <h2 class="section-title">11. DBスキーマ・RPC一覧</h2>
+  <p class="section-sub">Supabase PostgreSQL — SECURITY DEFINER + RLS完全遮断</p>
+  <div class="wire">
+    <div class="wire-header">データベース設計</div>
+    <div class="wire-body vertical">
+      <div style="padding:20px;">
+        <div class="grid-3" style="gap:16px;">
+          <!-- simulations -->
+          <div class="wf-box db">
+            <div class="wf-label">TABLE</div>
+            <div class="wf-title">simulations</div>
+            <table class="wf-table" style="margin-top:8px;">
+              <tr><th>Column</th><th>Type</th></tr>
+              <tr><td>id</td><td>UUID (PK)</td></tr>
+              <tr><td>name</td><td>TEXT</td></tr>
+              <tr><td>company_name</td><td>TEXT</td></tr>
+              <tr><td>created_by_name</td><td>TEXT</td></tr>
+              <tr><td>operator_count</td><td>NUMERIC</td></tr>
+              <tr><td>operator_cost</td><td>NUMERIC</td></tr>
+              <tr><td>person_month_cost</td><td>NUMERIC</td></tr>
+              <tr><td>monthly_calls</td><td>NUMERIC</td></tr>
+              <tr><td>avg_call_time</td><td>NUMERIC</td></tr>
+              <tr><td>system_cost</td><td>NUMERIC</td></tr>
+              <tr><td>training_cost</td><td>NUMERIC</td></tr>
+              <tr><td>other_cost</td><td>NUMERIC</td></tr>
+              <tr><td>initial_investment</td><td>NUMERIC</td></tr>
+              <tr><td>monthly_ai_cost</td><td>NUMERIC</td></tr>
+              <tr><td>monthly_api_cost</td><td>NUMERIC</td></tr>
+              <tr><td>automation_rate</td><td>NUMERIC</td></tr>
+              <tr><td>headcount_reduction</td><td>NUMERIC</td></tr>
+              <tr><td>training_reduction_rate</td><td>NUMERIC</td></tr>
+              <tr><td>created_at</td><td>TIMESTAMPTZ</td></tr>
+            </table>
+          </div>
+          <!-- kgi_goals -->
+          <div class="wf-box db">
+            <div class="wf-label">TABLE</div>
+            <div class="wf-title">kgi_goals</div>
+            <table class="wf-table" style="margin-top:8px;">
+              <tr><th>Column</th><th>Type</th></tr>
+              <tr><td>id</td><td>UUID (PK)</td></tr>
+              <tr><td>title</td><td>TEXT</td></tr>
+              <tr><td>target_value</td><td>NUMERIC</td></tr>
+              <tr><td>unit</td><td>TEXT</td></tr>
+              <tr><td>deadline</td><td>DATE</td></tr>
+              <tr><td>created_by_name</td><td>TEXT</td></tr>
+              <tr><td>created_at</td><td>TIMESTAMPTZ</td></tr>
+            </table>
+            <div style="margin-top:10px;">
+              <div class="wf-label">TABLE</div>
+              <div class="wf-title">kpi_metrics</div>
+              <table class="wf-table" style="margin-top:4px;">
+                <tr><th>Column</th><th>Type</th></tr>
+                <tr><td>id</td><td>UUID (PK)</td></tr>
+                <tr><td>kgi_id</td><td>UUID (FK)</td></tr>
+                <tr><td>title</td><td>TEXT</td></tr>
+                <tr><td>target_value</td><td>NUMERIC</td></tr>
+                <tr><td>unit</td><td>TEXT</td></tr>
+                <tr><td>deadline</td><td>DATE</td></tr>
+                <tr><td>created_at</td><td>TIMESTAMPTZ</td></tr>
+              </table>
+            </div>
+          </div>
+          <!-- RPC -->
+          <div class="wf-box rpc">
+            <div class="wf-label">RPC Functions (SECURITY DEFINER)</div>
+            <div style="font-size:11px; line-height:2;">
+              <code>get_simulations_count()</code><br>
+              <code>get_simulations(p_limit)</code><br>
+              <code>get_simulation_by_id(p_id)</code><br>
+              <code>insert_simulation(...19 params)</code><br>
+              <code>delete_simulation(p_id)</code><br>
+              <code>get_kgi_goals()</code><br>
+              <code>get_kgi_count()</code><br>
+              <code>insert_kgi(...5 params)</code><br>
+              <code>delete_kgi(p_id)</code><br>
+              <code>get_kpi_metrics()</code><br>
+              <code>insert_kpi(...5 params)</code><br>
+              <code>delete_kpi(p_id)</code>
+            </div>
+            <div style="margin-top:12px; padding:8px; background:#fef3c7; border-radius:6px; font-size:10px;">
+              <strong>セキュリティ設計:</strong><br>
+              RLS = 全テーブル SELECT/INSERT/UPDATE/DELETE 遮断<br>
+              全DB操作は SECURITY DEFINER 関数経由のみ<br>
+              クライアント直接アクセス不可
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div style="text-align:center; padding:40px 20px; color:var(--gray-400); font-size:12px; border-top:1px solid var(--gray-200); margin-top:40px;">
+  ROI Simulator v2 — Wireframe Document | Updated 2026-04-07
+</div>
+
+</body>
+</html>

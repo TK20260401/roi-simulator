@@ -11,6 +11,7 @@ type SimRecord = {
   company_name: string | null;
   created_by_name: string | null;
   created_at: string;
+  operator_count: number;
   operator_cost: number;
   person_month_cost: number;
   monthly_calls: number;
@@ -20,18 +21,24 @@ type SimRecord = {
   other_cost: number;
   initial_investment: number;
   monthly_ai_cost: number;
+  monthly_api_cost: number;
   automation_rate: number;
   headcount_reduction: number;
   training_reduction_rate: number;
 };
 
 function toInputs(s: SimRecord): SimInputs {
+  const operatorCount = Number(s.operator_count ?? 0);
+  const personMonthCost = Number(s.person_month_cost);
   return {
-    operatorCost: Number(s.operator_cost), personMonthCost: Number(s.person_month_cost),
+    operatorCount,
+    operatorCost: operatorCount > 0 ? operatorCount * personMonthCost : Number(s.operator_cost),
+    personMonthCost,
     monthlyCalls: s.monthly_calls, avgCallTime: Number(s.avg_call_time),
     systemCost: Number(s.system_cost), trainingCost: Number(s.training_cost),
     otherCost: Number(s.other_cost), initialInvestment: Number(s.initial_investment),
-    monthlyAiCost: Number(s.monthly_ai_cost), automationRate: s.automation_rate,
+    monthlyAiCost: Number(s.monthly_ai_cost), monthlyApiCost: Number(s.monthly_api_cost ?? 0),
+    automationRate: s.automation_rate,
     headcountReduction: s.headcount_reduction, trainingReductionRate: s.training_reduction_rate,
   };
 }

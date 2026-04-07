@@ -32,12 +32,17 @@ export default function SimulationDetailPage() {
         setCompanyName(data.company_name ?? "");
         setCreatedBy(data.created_by_name ?? "");
         setCreatedAt(data.created_at ? new Date(data.created_at).toLocaleDateString("ja-JP") : "");
+        const operatorCount = Number(data.operator_count ?? 0);
+        const personMonthCost = Number(data.person_month_cost);
         setInputs({
-          operatorCost: Number(data.operator_cost), personMonthCost: Number(data.person_month_cost),
+          operatorCount,
+          operatorCost: operatorCount > 0 ? operatorCount * personMonthCost : Number(data.operator_cost),
+          personMonthCost,
           monthlyCalls: data.monthly_calls, avgCallTime: Number(data.avg_call_time),
           systemCost: Number(data.system_cost), trainingCost: Number(data.training_cost),
           otherCost: Number(data.other_cost), initialInvestment: Number(data.initial_investment),
-          monthlyAiCost: Number(data.monthly_ai_cost), automationRate: data.automation_rate,
+          monthlyAiCost: Number(data.monthly_ai_cost), monthlyApiCost: Number(data.monthly_api_cost ?? 0),
+          automationRate: data.automation_rate,
           headcountReduction: data.headcount_reduction, trainingReductionRate: data.training_reduction_rate,
         });
         setLoading(false);
@@ -222,14 +227,16 @@ export default function SimulationDetailPage() {
           <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <h4 className="mb-4 text-sm font-semibold text-gray-700">前提条件</h4>
             <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-sm sm:grid-cols-3">
-              <div className="flex justify-between"><span className="text-gray-500">オペレーター人件費</span><span className="font-medium">¥{inputs.operatorCost.toLocaleString()}万/月</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">オペレーター人数</span><span className="font-medium">{inputs.operatorCount}人</span></div>
               <div className="flex justify-between"><span className="text-gray-500">人月コスト</span><span className="font-medium">¥{inputs.personMonthCost.toLocaleString()}万/人月</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">月間コール件数</span><span className="font-medium">{inputs.monthlyCalls.toLocaleString()}件</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">1コール平均時間</span><span className="font-medium">{inputs.avgCallTime}分</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">オペレーター人件費</span><span className="font-medium">¥{(inputs.operatorCount * inputs.personMonthCost).toLocaleString()}万/月</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">月間対応件数</span><span className="font-medium">{inputs.monthlyCalls.toLocaleString()}件</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">1件平均対応時間</span><span className="font-medium">{inputs.avgCallTime}分</span></div>
               <div className="flex justify-between"><span className="text-gray-500">システム運用費</span><span className="font-medium">¥{inputs.systemCost.toLocaleString()}万/月</span></div>
               <div className="flex justify-between"><span className="text-gray-500">教育費用</span><span className="font-medium">¥{inputs.trainingCost.toLocaleString()}万/年</span></div>
               <div className="flex justify-between"><span className="text-gray-500">初期投資</span><span className="font-medium">¥{inputs.initialInvestment.toLocaleString()}万</span></div>
               <div className="flex justify-between"><span className="text-gray-500">AI月額費用</span><span className="font-medium">¥{inputs.monthlyAiCost.toLocaleString()}万/月</span></div>
+              <div className="flex justify-between"><span className="text-gray-500">API従量課金費用</span><span className="font-medium">¥{inputs.monthlyApiCost.toLocaleString()}万/月</span></div>
               <div className="flex justify-between"><span className="text-gray-500">AI自動化率</span><span className="font-medium">{inputs.automationRate}%</span></div>
               <div className="flex justify-between"><span className="text-gray-500">人員削減見込み</span><span className="font-medium">{inputs.headcountReduction}人</span></div>
               <div className="flex justify-between"><span className="text-gray-500">教育削減率</span><span className="font-medium">{inputs.trainingReductionRate}%</span></div>
